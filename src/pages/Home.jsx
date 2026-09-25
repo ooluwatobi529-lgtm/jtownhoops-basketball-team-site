@@ -45,9 +45,16 @@ import { FaXTwitter } from "react-icons/fa6";
 
 import hero1 from "../images/about1.jpg";
 import hero2 from "../images/about2.jpg";
-import hero3 from "../images/gallery1.jpg";
-import hero4 from "../images/gallery2.jpg";
-import hero5 from "../images/bigfemo.jpg";
+import hero3 from "../images/about3.jpg";
+import hero4 from "../images/gallery1.jpg";
+import hero5 from "../images/gallery2.jpg";
+import hero6 from "../images/gallery4.jpg";
+import hero7 from "../images/gallery5.jpg";
+import hero8 from "../images/image_8e72b46a.png";
+import hero9 from "../images/image_bc7dadf0.png";
+import hero10 from "../images/image_b149a1ff.png";
+import bigFemoImage from "../images/bigfemo.jpg";
+import aipart2Image from "../images/aipart2.jpg";
 import footerBackground from "../images/mybackground4.jpg";
 import jtownLogo from "../images/jtownteamlogo.jpg";
 
@@ -81,21 +88,21 @@ const DEFAULT_HERO_SLIDES = [
   },
   {
     id: 3,
-    image: hero3,
+    image: hero4,
     eyebrow: "Game Day",
     title: "Built For The Game",
     text: "Follow J-Town Hoops highlights, players, teams, schedules and tournament action.",
   },
   {
     id: 4,
-    image: hero4,
+    image: hero5,
     eyebrow: "The Community",
     title: "One City. One Court. One Mission.",
     text: "Connecting players, supporters, teams and basketball lovers across the J-Town community.",
   },
   {
     id: 5,
-    image: hero5,
+    image: bigFemoImage,
     eyebrow: "J-Town Hoops",
     title: "More Than Basketball",
     text: "Supporting youth innovation, productivity and positive development through sport.",
@@ -182,7 +189,7 @@ const DEFAULT_TEAM_ROSTER = [
     rpg: "3.1",
     apg: "4.5",
     status: "Coach",
-    image: "../src/images/aipart2.jpg",
+    image: aipart2Image,
   },
     {
     id: 4,
@@ -215,7 +222,7 @@ const DEFAULT_TEAM_ROSTER = [
     rpg: "6.8",
     apg: "3.9",
     status: "Founder",
-    image: "../src/images/bigfemo.jpg",
+    image: bigFemoImage,
   },
   
 ];

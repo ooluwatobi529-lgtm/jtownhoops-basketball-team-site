@@ -1584,3 +1584,401 @@ textarea {
   cursor: text;
 }
 
+
+
+
+/* ============================================================
+   J-TOWN HOOPS — FINAL DESKTOP + MOBILE THEME FIX
+   ============================================================ */
+
+/*
+  ThemeContext.jsx controls these variables dynamically.
+  These defaults are only used before React finishes loading.
+*/
+:root {
+  --jt-accent: #f97316;
+  --jt-accent-bright: #fb923c;
+  --jt-accent-dark: #c2410c;
+  --jt-accent-rgb: 249, 115, 22;
+
+  --bg: #0d0d0c;
+  --jt-bg: #0d0d0c;
+
+  --jt-surface: #141412;
+  --jt-surface-light: #1b1b17;
+
+  --text: #f3f4f6;
+  --text-h: #ffffff;
+
+  --border: #2e303a;
+}
+
+/* ------------------------------------------------------------
+   DOCUMENT
+   ------------------------------------------------------------ */
+
+html {
+  min-height: 100%;
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100dvh;
+
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+
+  font-family: "Inter", sans-serif;
+
+  transition:
+    background-color 300ms ease,
+    color 300ms ease;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+
+  background-color: var(--bg);
+  color: var(--text);
+
+  transition:
+    background-color 300ms ease,
+    color 300ms ease;
+}
+
+/* ------------------------------------------------------------
+   THEME-AWARE TEXT
+   ------------------------------------------------------------ */
+
+body,
+p,
+span,
+label,
+input,
+textarea,
+select {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-h);
+}
+
+/* ------------------------------------------------------------
+   THEME-AWARE FORM CONTROLS
+   ------------------------------------------------------------ */
+
+input,
+textarea,
+select {
+  border-color: var(--border);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--jt-accent);
+  outline-color: var(--jt-accent);
+}
+
+/* ------------------------------------------------------------
+   ACCENT UTILITIES
+   ------------------------------------------------------------ */
+
+.jt-accent-text {
+  color: var(--jt-accent) !important;
+}
+
+.jt-accent-bg {
+  background-color: var(--jt-accent) !important;
+}
+
+.jt-accent-border {
+  border-color: rgba(var(--jt-accent-rgb), 0.55) !important;
+}
+
+.jt-accent-hover:hover {
+  color: var(--jt-accent) !important;
+}
+
+/* ------------------------------------------------------------
+   NAVBAR
+   ------------------------------------------------------------ */
+
+.jt-nav-item:hover {
+  color: var(--jt-accent) !important;
+}
+
+.jt-nav-active {
+  color: var(--jt-accent) !important;
+
+  background:
+    rgba(var(--jt-accent-rgb), 0.10) !important;
+
+  box-shadow:
+    0 0 18px rgba(var(--jt-accent-rgb), 0.18);
+}
+
+.jt-nav-active::after {
+  background: var(--jt-accent) !important;
+}
+
+.jt-mobile-nav:hover {
+  color: var(--jt-accent) !important;
+}
+
+.jt-mobile-nav-active {
+  color: var(--jt-accent) !important;
+
+  border-color:
+    rgba(var(--jt-accent-rgb), 0.30) !important;
+
+  background:
+    rgba(var(--jt-accent-rgb), 0.15) !important;
+}
+
+/* ------------------------------------------------------------
+   THEME BUTTON
+   ------------------------------------------------------------ */
+
+.jt-theme-button {
+  color: var(--jt-accent);
+
+  border-color:
+    rgba(var(--jt-accent-rgb), 0.25);
+
+  background:
+    rgba(var(--jt-accent-rgb), 0.06);
+}
+
+.jt-theme-button:hover,
+.jt-theme-button-active {
+  color: #ffffff;
+
+  border-color:
+    rgba(var(--jt-accent-rgb), 0.60);
+
+  background:
+    rgba(var(--jt-accent-rgb), 0.18);
+
+  box-shadow:
+    0 0 18px rgba(var(--jt-accent-rgb), 0.16);
+}
+
+/* ------------------------------------------------------------
+   NOTIFICATIONS
+   ------------------------------------------------------------ */
+
+.jt-notification-button:hover,
+.jt-notification-active {
+  color: var(--jt-accent) !important;
+
+  background:
+    rgba(var(--jt-accent-rgb), 0.10) !important;
+}
+
+.jt-notification-unread {
+  background:
+    rgba(var(--jt-accent-rgb), 0.04) !important;
+}
+
+/* ------------------------------------------------------------
+   ACCOUNT
+   ------------------------------------------------------------ */
+
+.jt-account-button:hover {
+  border-color:
+    rgba(var(--jt-accent-rgb), 0.45) !important;
+}
+
+/* ------------------------------------------------------------
+   EXISTING TAILWIND ORANGE CLASSES FOLLOW SELECTED THEME
+   ------------------------------------------------------------ */
+
+.text-orange-300,
+.text-orange-400,
+.text-orange-500,
+.text-orange-600,
+.text-amber-400,
+.text-amber-500 {
+  color: var(--jt-accent) !important;
+}
+
+.bg-orange-400,
+.bg-orange-500,
+.bg-orange-600,
+.bg-amber-500 {
+  background-color: var(--jt-accent) !important;
+}
+
+.border-orange-300,
+.border-orange-400,
+.border-orange-500,
+.border-orange-600,
+.border-amber-500 {
+  border-color: var(--jt-accent) !important;
+}
+
+/* ------------------------------------------------------------
+   SPORTS COMPONENTS
+   ------------------------------------------------------------ */
+
+.section-title::after {
+  background:
+    linear-gradient(
+      90deg,
+      var(--jt-accent),
+      var(--jt-accent-bright),
+      transparent
+    ) !important;
+
+  box-shadow:
+    0 0 12px
+    rgba(var(--jt-accent-rgb), 0.50) !important;
+}
+
+.score-glow {
+  text-shadow:
+    0 0 10px rgba(var(--jt-accent-rgb), 0.45),
+    0 0 30px rgba(var(--jt-accent-rgb), 0.18) !important;
+}
+
+.sports-card:hover,
+.roster-card:hover,
+.stat-card:hover {
+  border-color:
+    rgba(var(--jt-accent-rgb), 0.45) !important;
+}
+
+/* ------------------------------------------------------------
+   SCROLLBAR
+   ------------------------------------------------------------ */
+
+::-webkit-scrollbar-thumb {
+  background: var(--jt-accent) !important;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--jt-surface);
+}
+
+/* ------------------------------------------------------------
+   MOBILE THEME SUPPORT
+   ------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100dvh;
+
+    background-color: var(--bg) !important;
+    color: var(--text) !important;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .jt-mobile-nav-active {
+    color: var(--jt-accent) !important;
+
+    background:
+      rgba(var(--jt-accent-rgb), 0.15) !important;
+
+    border-color:
+      rgba(var(--jt-accent-rgb), 0.35) !important;
+  }
+
+  .jt-theme-button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ------------------------------------------------------------
+   TABLET
+   ------------------------------------------------------------ */
+
+@media (min-width: 769px) and (max-width: 1024px) {
+
+  html,
+  body,
+  #root {
+    background-color: var(--bg) !important;
+    color: var(--text) !important;
+  }
+}
+
+/* ------------------------------------------------------------
+   TOUCH DEVICES
+   ------------------------------------------------------------ */
+
+@media (hover: none) and (pointer: coarse) {
+
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color:
+      rgba(var(--jt-accent-rgb), 0.15);
+
+    touch-action: manipulation;
+  }
+}
+
+/* ------------------------------------------------------------
+   DAY COURT / LIGHT THEME
+   ------------------------------------------------------------ */
+
+html[data-jtown-theme="light"],
+body[data-jtown-theme="light"] {
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+html[data-jtown-theme="light"] #root,
+body[data-jtown-theme="light"] #root {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/*
+  Preserve deliberately dark J-Town sports sections.
+  We are NOT globally changing every black Tailwind component
+  because that would destroy your sports design.
+*/
+
+/* ------------------------------------------------------------
+   SMOOTH THEME CHANGE
+   ------------------------------------------------------------ */
+
+html,
+body,
+#root,
+.jt-theme-button,
+.jt-nav-item,
+.jt-mobile-nav,
+.jt-account-button,
+.jt-notification-button {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease;
+}

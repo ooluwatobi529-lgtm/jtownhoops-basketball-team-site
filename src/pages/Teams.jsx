@@ -4,7 +4,15 @@ import backgroundImage from "../images/mybackground4.jpg";
 import { useNotifications } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
 
-const blank = { name: "", logo: "/src/images/jtownteamlogo.jpg", wins: 0, losses: 0, division: "North Conference" };
+import jtownTeamLogo from "../images/jtownteamlogo.jpg";
+
+const blank = {
+  name: "",
+  logo: jtownTeamLogo,
+  wins: 0,
+  losses: 0,
+  division: "North Conference"
+};
 
 export default function Teams(){
   const { isAdmin } = useAuth();
