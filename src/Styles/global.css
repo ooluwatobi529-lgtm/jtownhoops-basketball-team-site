@@ -1,0 +1,1586 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+
+/* 2. Core Tailwind Directive Layer */
+@import "tailwindcss";
+
+/* 3. Explicit Utility Font Name Assignments */
+.font-sports { 
+  font-family: 'Barlow Condensed', -apple-system, sans-serif !important; 
+}
+.font-sans { 
+  font-family: 'Inter', sans-serif; 
+}
+
+
+/* 4. Corrected Application Variable Tokens */
+:root {
+  /* Adjusted theme defaults to keep text clear over sports layout elements */
+  --text: #f3f4f6;
+  --text-h: #ffffff;
+  --bg: #0d0d0c;
+  --border: #2e303a;
+  --code-bg: #1f2028;
+  --accent: #f59e0b;
+
+  /* J-Town Hoops Sports Theme */
+  --jt-orange: #f59e0b;
+  --jt-orange-bright: #ffb300;
+  --jt-orange-hot: #ff6500;
+  --jt-orange-dark: #a83d00;
+
+  --jt-black: #080807;
+  --jt-surface: #141412;
+  --jt-surface-light: #1b1b17;
+
+  --jt-glow: rgba(245, 158, 11, 0.35);
+  --jt-glow-soft: rgba(245, 158, 11, 0.12);
+
+  --jt-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    0 0 35px rgba(245, 158, 11, 0.08);
+
+  --accent-bg: rgba(245, 158, 11, 0.1);
+  --accent-border: rgba(245, 158, 11, 0.5);
+  --social-bg: rgba(47, 48, 58, 0.5);
+  --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+
+  --sans: 'Inter', system-ui, sans-serif;
+  --heading: 'Barlow Condensed', system-ui, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color-scheme: dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+/* 5. Custom Document Layout Defaults */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: #0d0d0c !important; /* Forces background priority over framework layers */
+  color: #f3f4f6;
+}
+
+
+
+
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #141412;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #f59e0b;
+      border-radius: 4px;
+    }
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+h1 {
+  font-size: 56px;
+  letter-spacing: -1.68px;
+  margin: 32px 0;
+  @media (max-width: 1024px) {
+    font-size: 36px;
+    margin: 20px 0;
+  }
+}
+h2 {
+  font-size: 24px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 8px;
+  @media (max-width: 1024px) {
+    font-size: 20px;
+  }
+}
+p {
+  margin: 0;
+}
+
+code,
+.counter {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 4px;
+  color: var(--text-h);
+}
+
+code {
+  font-size: 15px;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: var(--code-bg);
+}
+
+.counter {
+  font-size: 16px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 2px solid transparent;
+  transition: border-color 0.3s;
+  margin-bottom: 24px;
+
+  &:hover {
+    border-color: var(--accent-border);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.hero {
+  position: relative;
+
+  .base,
+  .framework,
+  .vite {
+    inset-inline: 0;
+    margin: 0 auto;
+  }
+
+  .base {
+    width: 170px;
+    position: relative;
+    z-index: 0;
+  }
+
+  .framework,
+  .vite {
+    position: absolute;
+  }
+
+  .framework {
+    z-index: 1;
+    top: 34px;
+    height: 28px;
+    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
+      scale(1.4);
+  }
+
+  .vite {
+    z-index: 0;
+    top: 107px;
+    height: 26px;
+    width: auto;
+    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
+      scale(0.8);
+  }
+}
+
+#app {
+  width: 1126px;
+  max-width: 100%;
+  margin: 0 auto;
+  text-align: center;
+  border-inline: 1px solid var(--border);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+#center {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  place-content: center;
+  place-items: center;
+  flex-grow: 1;
+
+  @media (max-width: 1024px) {
+    padding: 32px 20px 24px;
+    gap: 18px;
+  }
+}
+
+#next-steps {
+  display: flex;
+  border-top: 1px solid var(--border);
+  text-align: left;
+
+  & > div {
+    flex: 1 1 0;
+    padding: 32px;
+    @media (max-width: 1024px) {
+      padding: 24px 20px;
+    }
+  }
+
+  .icon {
+    margin-bottom: 16px;
+    width: 22px;
+    height: 22px;
+  }
+
+  @media (max-width: 1024px) {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+#docs {
+  border-right: 1px solid var(--border);
+
+  @media (max-width: 1024px) {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+#next-steps ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  margin: 32px 0 0;
+
+  .logo {
+    height: 18px;
+  }
+
+  a {
+    color: var(--text-h);
+    font-size: 16px;
+    border-radius: 6px;
+    background: var(--social-bg);
+    display: flex;
+    padding: 6px 12px;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    transition: box-shadow 0.3s;
+
+    &:hover {
+      box-shadow: var(--shadow);
+    }
+    .button-icon {
+      height: 18px;
+      width: 18px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+
+    li {
+      flex: 1 1 calc(50% - 8px);
+    }
+
+    a {
+      width: 100%;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+  }
+}
+
+#spacer {
+  height: 88px;
+  border-top: 1px solid var(--border);
+  @media (max-width: 1024px) {
+    height: 48px;
+  }
+}
+
+.ticks {
+  position: relative;
+  width: 100%;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: -4.5px;
+    border: 5px solid transparent;
+  }
+
+  &::before {
+    left: 0;
+    border-left-color: var(--border);
+  }
+  &::after {
+    right: 0;
+    border-right-color: var(--border);
+  }
+}
+
+
+
+
+
+
+
+        @keyframes jsxMarquee {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-jsx-marquee {
+          display: inline-block;
+          white-space: nowrap;
+          animation: jsxMarquee 25s linear infinite;
+        }
+
+
+        /* ============================================================
+   J-TOWN HOOPS — SPORTS VISUAL EFFECTS
+   Keep all J-Town custom effects in this section.
+   ============================================================ */
+
+
+/* ============================================================
+   1. J-TOWN SPORTS GRID
+   ============================================================ */
+
+.sports-grid {
+  background-image:
+    linear-gradient(
+      rgba(255, 159, 10, 0.025) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 159, 10, 0.025) 1px,
+      transparent 1px
+    );
+
+  background-size: 55px 55px;
+
+  mask-image: linear-gradient(
+    to bottom,
+    black,
+    transparent 90%
+  );
+
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black,
+    transparent 90%
+  );
+}
+
+
+/* ============================================================
+   2. MAIN J-TOWN TITLE
+   ============================================================ */
+
+.jtown-title {
+  position: relative;
+
+  display: inline-block;
+
+  font-family:
+    'Barlow Condensed',
+    Impact,
+    Haettenschweiler,
+    'Arial Narrow Bold',
+    sans-serif;
+
+
+  font-style: italic;
+  font-weight: 900;
+
+  font-size: clamp(4rem, 11vw, 9rem);
+
+  line-height: 0.82;
+
+  white-space: nowrap;
+
+  letter-spacing: -0.065em;
+
+  line-height: 0.85;
+
+  text-transform: uppercase;
+
+  transform: skewX(-7deg);
+
+  text-shadow:
+    0 2px 0 #eeeeee,
+    0 4px 0 #999999,
+    0 6px 0 #555555,
+    0 9px 0 #292929,
+    0 13px 0 #111111
+
+    0 18px 25px rgba(0, 0, 0, 0.85),
+
+    0 0 30px rgba(245, 158, 11, 0.10);
+
+  animation:
+    jtownTitleEnter 1s ease-out both;
+}
+
+
+/* ============================================================
+   3. HOOPS — GOLD / ORANGE 3D EFFECT
+   ============================================================ */
+
+.jtown-hoops {
+
+  position: relative;
+
+  display: inline-block;
+
+    font-family:
+    'Barlow Condensed',
+    Impact,
+    Haettenschweiler,
+    'Arial Narrow Bold',
+    sans-serif;
+  
+
+  font-style: italic;
+  font-weight: 900;
+
+  background: linear-gradient(
+    180deg,
+      #fff2b0 0%,
+      #ffd34d 14%,
+      #ffae00 35%,
+      #f57c00 58%,
+      #b94d00 82%,
+      rgba(90, 35, 0, 0.35) 100%
+  );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  color: transparent;
+
+
+  /*
+    THIS creates the environmental fade.
+
+    Solid on the left,
+    gradually disappearing toward the right.
+  */
+  -webkit-mask-image:
+    linear-gradient(
+      90deg,
+      #000 0%,
+      #000 45%,
+      rgba(0, 0, 0, 0.9) 60%,
+      rgba(0, 0, 0, 0.45) 80%,
+      transparent 100%
+    );
+
+      mask-image:
+    linear-gradient(
+      90deg,
+      #000 0%,
+      #000 42%,
+      rgba(0, 0, 0, 0.9) 58%,
+      rgba(0, 0, 0, 0.45) 78%,
+      transparent 100%
+    );
+
+    text-shadow:
+    0 2px 0 #d65b00,
+    0 4px 0 #a43f00,
+    0 7px 0 #6e2800,
+    0 10px 0 #3d1700,
+
+    0 15px 22px rgba(0, 0, 0, 0.9),
+
+    0 0 18px rgba(255, 140, 0, 0.45),
+    0 0 40px rgba(255, 100, 0, 0.16);
+
+  animation:
+    hoopsReveal 1.25s cubic-bezier(.2,.8,.2,1) both,
+    hoopsGlow 3.5s ease-in-out 1.25s infinite;
+
+  overflow: hidden;
+}
+
+
+/* ============================================================
+   J-TOWN — CLEAN WHITE SPORTS TEXT
+   ============================================================ */
+
+.jtown-town {
+  position: relative;
+
+  color: #ffffff;
+
+  font-weight: 900;
+
+  /*
+    Slight silver highlight.
+  */
+  background:
+    linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #f8f8f8 45%,
+      #bdbdbd 100%
+    );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  -webkit-text-fill-color: transparent;
+
+  text-shadow:
+    0 2px 0 #d0d0d0,
+    0 5px 0 #777,
+    0 8px 0 #333,
+    0 12px 18px rgba(0, 0, 0, 0.9);
+}
+
+
+/* ============================================================
+   4. MOVING LIGHT ACROSS HOOPS
+   ============================================================ */
+
+.jtown-hoops::after {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: -100%;
+
+  width: 35%;
+  height: 140%;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.65),
+    transparent
+  );
+
+  transform: skewX(-20deg);
+
+  animation:
+    hoopsLightSweep 4.5s ease-in-out infinite;
+
+  pointer-events: none;
+}
+
+
+@keyframes hoopsLightSweep {
+
+  0% {
+    left: -80%;
+  }
+
+  20%,
+  100% {
+    left: 150%;
+  }
+
+}
+
+
+/* ============================================================
+   5. TITLE ENTRANCE
+   ============================================================ */
+
+@keyframes jtownTitleEnter {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(35px)
+      scale(0.96);
+
+    filter: blur(8px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0)
+      scale(1);
+
+    filter: blur(0);
+  }
+
+}
+
+
+/* ============================================================
+   6. HOOPS ENTRANCE
+   ============================================================ */
+
+@keyframes hoopsReveal {
+
+  from {
+    opacity: 0;
+    transform: translateX(35px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+}
+
+
+/* ============================================================
+   HERO DESCRIPTION — CENTERED
+   ============================================================ */
+
+.hero-description {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  position: relative;
+  z-index: 5;
+
+  transform: none !important;
+}
+
+.hero-description {
+  width: 100%;
+  max-width: 760px;
+
+  margin: 0 auto !important;
+  padding: 0 20px !important;
+
+    box-sizing: border-box;
+
+  text-align: center;
+
+  color: #d1d5db;
+
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(0.5rem, 1vw, 1rem);
+  font-weight: 400;
+  line-height: 1.75;
+
+  position: relative;
+  transform: none !important;
+  z-index: 5;
+
+    color: rgba(229, 231, 235, 0.88);
+
+  letter-spacing: 0.01em;
+
+    left: auto !important;
+  right: auto !important;
+
+  /* subtle sports-style depth */
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.9),
+    0 0 18px rgba(255, 255, 255, 0.04);
+
+  animation: descriptionFadeIn 1s ease 0.35s both;
+}
+
+@keyframes descriptionFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+
+/* ============================================================
+   7. LIVING ORANGE GLOW
+   ============================================================ */
+
+@keyframes hoopsGlow {
+
+  0%,
+  100% {
+
+    filter:
+      drop-shadow(
+        0 0 8px
+        rgba(255, 140, 0, 0.15)
+      )
+
+      drop-shadow(
+        0 0 18px
+        rgba(255, 100, 0, 0.08)
+      );
+
+  }
+
+  50% {
+
+    filter:
+      drop-shadow(
+        0 0 16px
+        rgba(255, 160, 0, 0.45)
+      )
+
+      drop-shadow(
+        0 0 40px
+        rgba(255, 100, 0, 0.22)
+      );
+
+  }
+
+}
+
+
+/* ============================================================
+   8. HERO BACKGROUND GLOW
+   ============================================================ */
+
+.hero-ball-glow {
+
+  position: absolute;
+
+  width: 520px;
+  height: 520px;
+
+  right: -120px;
+  top: 50%;
+
+  transform: translateY(-50%);
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(255, 159, 10, 0.12),
+      rgba(255, 100, 0, 0.035) 45%,
+      transparent 70%
+    );
+
+  filter: blur(5px);
+
+  pointer-events: none;
+
+  animation:
+    heroGlowPulse 5s ease-in-out infinite;
+}
+
+
+@keyframes heroGlowPulse {
+
+  0%,
+  100% {
+    transform:
+      translateY(-50%)
+      scale(0.95);
+
+    opacity: 0.55;
+  }
+
+  50% {
+    transform:
+      translateY(-50%)
+      scale(1.08);
+
+    opacity: 1;
+  }
+
+}
+
+
+/* ============================================================
+   9. FLOATING LIGHT PARTICLES
+   ============================================================ */
+
+.floating-light {
+
+  position: absolute;
+
+  width: 5px;
+  height: 5px;
+
+  border-radius: 50%;
+
+  background: #ffb000;
+
+  box-shadow:
+    0 0 8px #ffb000,
+    0 0 20px rgba(255, 120, 0, 0.7);
+
+  animation:
+    floatingSportsLight 6s ease-in-out infinite;
+
+  pointer-events: none;
+}
+
+
+.light-one {
+  left: 12%;
+  top: 28%;
+  animation-delay: 0s;
+}
+
+
+.light-two {
+  left: 78%;
+  top: 24%;
+  animation-delay: 1.5s;
+}
+
+
+.light-three {
+  left: 84%;
+  top: 70%;
+  animation-delay: 3s;
+}
+
+
+.light-four {
+  left: 22%;
+  top: 75%;
+  animation-delay: 4s;
+}
+
+
+@keyframes floatingSportsLight {
+
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.25;
+  }
+
+  50% {
+    transform: translate(25px, -35px);
+    opacity: 1;
+  }
+
+}
+
+
+/* ============================================================
+   10. SPORTS BUTTON
+   ============================================================ */
+
+.sports-button {
+
+  position: relative;
+
+  overflow: hidden;
+
+  box-shadow:
+    0 8px 25px rgba(255, 145, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+
+.sports-button::before {
+
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: -100%;
+
+  width: 45%;
+  height: 100%;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.4),
+      transparent
+    );
+
+  transform: skewX(-20deg);
+
+  transition:
+    left 0.7s ease;
+
+}
+
+
+.sports-button:hover {
+
+  transform:
+    translateY(-4px)
+    scale(1.02);
+
+  box-shadow:
+    0 15px 35px rgba(255, 145, 0, 0.35),
+    0 0 30px rgba(255, 145, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+
+}
+
+
+.sports-button:hover::before {
+  left: 150%;
+}
+
+
+/* ============================================================
+   11. FEATURED MEDIA / GENERAL SPORTS CARDS
+   ============================================================ */
+
+.sports-card {
+
+  position: relative;
+
+  transition:
+    transform 0.4s cubic-bezier(.2, .8, .2, 1),
+    border-color 0.4s ease,
+    box-shadow 0.4s ease;
+
+  box-shadow:
+    0 15px 35px rgba(0, 0, 0, 0.35);
+}
+
+
+.sports-card::before {
+
+  content: "";
+
+  position: absolute;
+
+  inset: 0;
+
+  border-radius: inherit;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 170, 0, 0.10),
+      transparent 40%
+    );
+
+  opacity: 0;
+
+  transition:
+    opacity 0.4s ease;
+
+  pointer-events: none;
+
+}
+
+
+.sports-card:hover {
+
+  transform:
+    translateY(-9px);
+
+  border-color:
+    rgba(245, 158, 11, 0.45);
+
+  box-shadow:
+    0 25px 55px rgba(0, 0, 0, 0.55),
+    0 0 30px rgba(245, 158, 11, 0.10);
+
+}
+
+
+.sports-card:hover::before {
+  opacity: 1;
+}
+
+
+/* ============================================================
+   12. PLAY BUTTON PULSE
+   ============================================================ */
+
+.play-button {
+
+  box-shadow:
+    0 0 0 0 rgba(251, 191, 36, 0.5),
+    0 0 20px rgba(251, 191, 36, 0.25);
+
+  animation:
+    playButtonPulse 2.2s infinite;
+
+}
+
+
+@keyframes playButtonPulse {
+
+  0% {
+
+    box-shadow:
+      0 0 0 0 rgba(251, 191, 36, 0.45),
+      0 0 20px rgba(251, 191, 36, 0.25);
+
+  }
+
+  70% {
+
+    box-shadow:
+      0 0 0 15px rgba(251, 191, 36, 0),
+      0 0 35px rgba(251, 191, 36, 0.35);
+
+  }
+
+  100% {
+
+    box-shadow:
+      0 0 0 0 rgba(251, 191, 36, 0),
+      0 0 20px rgba(251, 191, 36, 0.25);
+
+  }
+
+}
+
+
+/* ============================================================
+   13. SECTION HEADINGS
+   ============================================================ */
+
+.section-title {
+
+  position: relative;
+
+  text-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.7);
+
+}
+
+
+.section-title::after {
+
+  content: "";
+
+  display: block;
+
+  width: 65px;
+  height: 3px;
+
+  margin-top: 9px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #f59e0b,
+      #ff6500,
+      transparent
+    );
+
+  box-shadow:
+    0 0 12px rgba(245, 158, 11, 0.5);
+
+}
+
+
+/* ============================================================
+   14. STATISTIC CARDS
+   ============================================================ */
+
+.stat-card {
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 159, 10, 0.08),
+      rgba(20, 20, 18, 0.96)
+    );
+
+  border:
+    1px solid rgba(255, 255, 255, 0.07);
+
+  box-shadow:
+    0 15px 40px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  transition:
+    transform 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+
+}
+
+
+.stat-card:hover {
+
+  transform:
+    translateY(-6px);
+
+  border-color:
+    rgba(245, 158, 11, 0.4);
+
+  box-shadow:
+    0 20px 45px rgba(0, 0, 0, 0.5),
+    0 0 25px rgba(245, 158, 11, 0.1);
+
+}
+
+
+/* ============================================================
+   15. ROSTER CARDS
+   ============================================================ */
+
+.roster-card {
+
+  position: relative;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      145deg,
+      #191916,
+      #0e0e0d
+    );
+
+  transition:
+    transform 0.35s ease,
+    box-shadow 0.35s ease,
+    border-color 0.35s ease;
+
+}
+
+
+.roster-card:hover {
+
+  transform:
+    translateY(-10px);
+
+  border-color:
+    rgba(245, 158, 11, 0.45);
+
+  box-shadow:
+    0 25px 50px rgba(0, 0, 0, 0.55),
+    0 0 35px rgba(245, 158, 11, 0.12);
+
+}
+
+
+.jersey-number {
+
+  font-family:
+    Impact,
+    Haettenschweiler,
+    'Arial Narrow Bold',
+    sans-serif;
+
+  font-size: 90px;
+
+  line-height: 0.8;
+
+  color:
+    rgba(255, 255, 255, 0.035);
+
+  transition:
+    color 0.3s ease,
+    transform 0.3s ease;
+
+}
+
+
+.roster-card:hover .jersey-number {
+
+  color:
+    rgba(245, 158, 11, 0.10);
+
+  transform:
+    scale(1.08);
+
+}
+
+
+/* ============================================================
+   16. LIVE STATUS DOT
+   ============================================================ */
+
+.live-dot {
+
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+
+  background: #22c55e;
+
+  box-shadow:
+    0 0 0 0 rgba(34, 197, 94, 0.6);
+
+  animation:
+    liveDotPulse 1.7s infinite;
+
+}
+
+
+@keyframes liveDotPulse {
+
+  70% {
+    box-shadow:
+      0 0 0 8px rgba(34, 197, 94, 0);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(34, 197, 94, 0);
+  }
+
+}
+
+
+/* ============================================================
+   17. SPORTS SCORE GLOW
+   ============================================================ */
+
+.score-glow {
+
+  text-shadow:
+    0 0 10px rgba(245, 158, 11, 0.45),
+    0 0 30px rgba(245, 158, 11, 0.18);
+
+}
+
+
+/* ============================================================
+   18. SIMPLE FADE-UP
+   ============================================================ */
+
+.fade-up {
+
+  animation:
+    sportsFadeUp 0.9s ease-out both;
+
+}
+
+
+@keyframes sportsFadeUp {
+
+  from {
+
+    opacity: 0;
+
+    transform:
+      translateY(25px);
+
+  }
+
+  to {
+
+    opacity: 1;
+
+    transform:
+      translateY(0);
+
+  }
+
+}
+
+
+/* ============================================================
+   19. ACCESSIBILITY
+   Reduce animation for users who request less motion.
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+
+    animation-duration: 0.01ms !important;
+
+    animation-iteration-count: 1 !important;
+
+    scroll-behavior: auto !important;
+
+    transition-duration: 0.01ms !important;
+
+  }
+
+}
+
+
+
+
+/* ============================================================
+   J-TOWN HOOPS MULTI-THEME SYSTEM
+   Paste this entire section at the VERY BOTTOM of global.css
+   ============================================================ */
+
+:root {
+  --jt-accent: #f97316;
+  --jt-accent-bright: #fb923c;
+  --jt-accent-dark: #c2410c;
+  --jt-accent-rgb: 249, 115, 22;
+}
+
+/* Reusable theme-aware helpers */
+.jt-accent-text {
+  color: var(--jt-accent) !important;
+}
+
+.jt-accent-bg {
+  background-color: var(--jt-accent) !important;
+}
+
+.jt-accent-border {
+  border-color: rgba(var(--jt-accent-rgb), 0.55) !important;
+}
+
+.jt-accent-hover:hover {
+  color: var(--jt-accent) !important;
+}
+
+.jt-focus-border:focus {
+  border-color: var(--jt-accent) !important;
+  box-shadow: 0 0 0 2px rgba(var(--jt-accent-rgb), 0.08);
+}
+
+/* Navbar */
+.jt-nav-item:hover {
+  color: var(--jt-accent) !important;
+}
+
+.jt-nav-active {
+  color: var(--jt-accent) !important;
+  background: rgba(var(--jt-accent-rgb), 0.10) !important;
+  box-shadow: 0 0 18px rgba(var(--jt-accent-rgb), 0.18);
+}
+
+.jt-nav-active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -0.5rem;
+  width: 1.75rem;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: var(--jt-accent);
+}
+
+.jt-mobile-nav:hover {
+  color: var(--jt-accent) !important;
+}
+
+.jt-mobile-nav-active {
+  color: var(--jt-accent) !important;
+  border-color: rgba(var(--jt-accent-rgb), 0.30) !important;
+  background: rgba(var(--jt-accent-rgb), 0.15) !important;
+}
+
+.jt-theme-button {
+  color: var(--jt-accent);
+  border-color: rgba(var(--jt-accent-rgb), 0.25);
+  background: rgba(var(--jt-accent-rgb), 0.06);
+}
+
+.jt-theme-button:hover,
+.jt-theme-button-active {
+  color: #fff;
+  border-color: rgba(var(--jt-accent-rgb), 0.60);
+  background: rgba(var(--jt-accent-rgb), 0.18);
+  box-shadow: 0 0 18px rgba(var(--jt-accent-rgb), 0.16);
+}
+
+.jt-notification-button:hover,
+.jt-notification-active {
+  color: var(--jt-accent) !important;
+  background: rgba(var(--jt-accent-rgb), 0.10) !important;
+}
+
+.jt-notification-unread {
+  background: rgba(var(--jt-accent-rgb), 0.04) !important;
+}
+
+.jt-account-button:hover {
+  border-color: rgba(var(--jt-accent-rgb), 0.45) !important;
+}
+
+/* Make existing J-Town orange accents on your pages follow the chosen theme.
+   This means you do NOT need to immediately rewrite every page. */
+.text-orange-300,
+.text-orange-400,
+.text-orange-500,
+.text-orange-600,
+.text-amber-400,
+.text-amber-500 {
+  color: var(--jt-accent) !important;
+}
+
+.bg-orange-400,
+.bg-orange-500,
+.bg-orange-600,
+.bg-amber-500 {
+  background-color: var(--jt-accent) !important;
+}
+
+.border-orange-300,
+.border-orange-400,
+.border-orange-500,
+.border-orange-600,
+.border-amber-500 {
+  border-color: var(--jt-accent) !important;
+}
+
+.from-orange-500,
+.from-orange-600 {
+  --tw-gradient-from: var(--jt-accent) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(var(--jt-accent-rgb), 0) var(--tw-gradient-to-position) !important;
+}
+
+.to-orange-500,
+.to-orange-600 {
+  --tw-gradient-to: var(--jt-accent) var(--tw-gradient-to-position) !important;
+}
+
+/* Common transparent Tailwind orange utilities used around J-Town */
+.bg-orange-500\/5 {
+  background-color: rgba(var(--jt-accent-rgb), 0.05) !important;
+}
+.bg-orange-500\/10 {
+  background-color: rgba(var(--jt-accent-rgb), 0.10) !important;
+}
+.bg-orange-500\/15 {
+  background-color: rgba(var(--jt-accent-rgb), 0.15) !important;
+}
+.bg-orange-500\/20 {
+  background-color: rgba(var(--jt-accent-rgb), 0.20) !important;
+}
+.border-orange-500\/20 {
+  border-color: rgba(var(--jt-accent-rgb), 0.20) !important;
+}
+.border-orange-500\/30 {
+  border-color: rgba(var(--jt-accent-rgb), 0.30) !important;
+}
+.border-orange-500\/40 {
+  border-color: rgba(var(--jt-accent-rgb), 0.40) !important;
+}
+.border-orange-500\/50 {
+  border-color: rgba(var(--jt-accent-rgb), 0.50) !important;
+}
+
+/* Theme-aware scrollbar */
+::-webkit-scrollbar-thumb {
+  background: var(--jt-accent) !important;
+}
+
+/* Theme-aware generic sports effects */
+.section-title::after {
+  background: linear-gradient(
+    90deg,
+    var(--jt-accent),
+    var(--jt-accent-bright),
+    transparent
+  ) !important;
+  box-shadow: 0 0 12px rgba(var(--jt-accent-rgb), 0.50) !important;
+}
+
+.score-glow {
+  text-shadow:
+    0 0 10px rgba(var(--jt-accent-rgb), 0.45),
+    0 0 30px rgba(var(--jt-accent-rgb), 0.18) !important;
+}
+
+.sports-card:hover,
+.roster-card:hover,
+.stat-card:hover {
+  border-color: rgba(var(--jt-accent-rgb), 0.45) !important;
+}
+
+/* Smooth visual transition when changing themes */
+body,
+button,
+a,
+
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+select,
+summary,
+label[for] {
+  cursor: pointer;
+}
+
+/* Disabled controls should NOT show the clickable hand */
+button:disabled,
+input:disabled,
+select:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+
+input,
+select,
+textarea,
+.jt-nav-item,
+.jt-theme-button {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: 250ms;
+  transition-timing-function: ease;
+}
+
+/* ============================================================
+   J-TOWN HOOPS — GLOBAL CLICKABLE HAND POINTER
+   ============================================================ */
+
+/* Native interactive elements */
+button,
+a,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+select,
+summary,
+label[for] {
+  cursor: pointer !important;
+}
+
+/* Custom clickable React elements that use an onclick handler */
+[onclick] {
+  cursor: pointer !important;
+}
+
+/* Disabled controls should look disabled instead of clickable */
+button:disabled,
+input:disabled,
+select:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed !important;
+}
+
+/* Text-entry controls keep the normal text cursor */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+input[type="number"],
+input[type="date"],
+textarea {
+  cursor: text;
+}
+
