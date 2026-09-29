@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# Environment variables - DO NOT upload to GitHub
+.env
+.env.*
+!.env.example

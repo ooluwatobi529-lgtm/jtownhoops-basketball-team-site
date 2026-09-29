@@ -1,3 +1,5 @@
+// src/context/AuthContext.jsx
+
 import {
   createContext,
   useContext,
@@ -5,459 +7,800 @@ import {
   useState,
 } from "react";
 
+import { authAPI } from "../services/api";
+
+// ============================================================
+// J-TOWN HOOPS AUTH CONTEXT
+// ============================================================
+
 const AuthContext = createContext(null);
 
 // ============================================================
 // LOCAL STORAGE KEYS
 // ============================================================
+//
+// IMPORTANT:
+//
+// LocalStorage should contain ONLY SMALL authentication data.
+//
+// DO NOT store:
+// - profile pictures
+// - cover pictures
+// - Base64 images
+// - uploaded media
+// - large arrays
+//
+// MongoDB/backend should eventually hold persistent profile
+// media.
+//
+// ============================================================
 
-const USER_KEY = "jtown-hoops-current-user-v2";
+const USER_KEY =
+  "jtown-hoops-current-user-v3";
 
-const ACCOUNTS_KEY =
-  "jtown-hoops-registered-accounts-v1";
+const TOKEN_KEY =
+  "jtown-hoops-token";
 
 // ============================================================
-// LOAD CURRENT SIGNED-IN USER
+// CREATE SMALL STORAGE USER
+// ============================================================
+//
+// This is the most important part of this fix.
+//
+// We deliberately choose the small values that are allowed
+// to enter localStorage instead of copying the entire user.
+//
+// ============================================================
+
+function createStorageUser(account) {
+  if (!account) {
+    return null;
+  }
+
+  return {
+    id:
+      account.id ||
+      account._id ||
+      "",
+
+    name:
+      account.name ||
+      "",
+
+    email:
+      account.email ||
+      "",
+
+    role:
+      account.role ||
+      "user",
+
+    phone:
+      account.phone ||
+      "",
+
+    address:
+      account.address ||
+      "",
+
+    nationality:
+      account.nationality ||
+      "",
+
+    occupation:
+      account.occupation ||
+      "",
+
+    bio:
+      account.bio ||
+      "",
+
+    isActive:
+      account.isActive ??
+      true,
+
+    isVerified:
+      account.isVerified ??
+      false,
+
+    lastLogin:
+      account.lastLogin ||
+      null,
+
+    createdAt:
+      account.createdAt ||
+      null,
+
+    updatedAt:
+      account.updatedAt ||
+      null,
+  };
+}
+
+// ============================================================
+// SAFE LOCAL STORAGE SET
+// ============================================================
+//
+// A storage problem must NEVER destroy a successful login.
+//
+// If the browser refuses localStorage, React can still keep
+// the signed-in user for the current session.
+//
+// ============================================================
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(
+      key,
+      value
+    );
+
+    return true;
+  } catch (error) {
+    console.warn(
+      `Could not save ${key} to localStorage:`,
+      error
+    );
+
+    return false;
+  }
+}
+
+// ============================================================
+// SAFE LOCAL STORAGE REMOVE
+// ============================================================
+
+function safeRemoveItem(key) {
+  try {
+    localStorage.removeItem(
+      key
+    );
+  } catch (error) {
+    console.warn(
+      `Could not remove ${key} from localStorage:`,
+      error
+    );
+  }
+}
+
+// ============================================================
+// LOAD SAVED USER
 // ============================================================
 
 function loadUser() {
   try {
-    const saved = JSON.parse(localStorage.getItem(USER_KEY) || "null");
-    return saved && saved.email ? saved : null;
-  } catch (error) {
-    console.error("Could not restore signed-in user:", error);
-    return null;
-  }
-}
+    const savedUser =
+      localStorage.getItem(
+        USER_KEY
+      );
 
-// ============================================================
-// LOAD REGISTERED ACCOUNTS
-// ============================================================
+    if (!savedUser) {
+      return null;
+    }
 
-function loadAccounts() {
-  try {
-    const savedAccounts = JSON.parse(
-      localStorage.getItem(ACCOUNTS_KEY) || "[]"
+    const parsedUser =
+      JSON.parse(
+        savedUser
+      );
+
+    if (
+      !parsedUser ||
+      !parsedUser.email
+    ) {
+      return null;
+    }
+
+    // --------------------------------------------------------
+    // CLEAN OLD V3 DATA IF NECESSARY
+    // --------------------------------------------------------
+
+    const smallUser =
+      createStorageUser(
+        parsedUser
+      );
+
+    safeSetItem(
+      USER_KEY,
+      JSON.stringify(
+        smallUser
+      )
     );
 
-    return Array.isArray(savedAccounts)
-      ? savedAccounts
-      : [];
+    return smallUser;
   } catch (error) {
     console.error(
-      "Could not load registered accounts:",
+      "Could not restore signed-in user:",
       error
     );
 
-    return [];
+    safeRemoveItem(
+      USER_KEY
+    );
+
+    return null;
   }
-}
-
-function getAdminEmails() {
-  const plural = String(import.meta.env.VITE_ADMIN_EMAILS || "");
-  const singular = String(import.meta.env.VITE_ADMIN_EMAIL || "");
-
-  return [...plural.split(","), singular]
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-// ============================================================
-// CLEAN / VALIDATE ROLE
-// ============================================================
-
-function cleanRole(role) {
-  const value = String(role || "user")
-    .trim()
-    .toLowerCase();
-
-  const allowedRoles = [
-    "user",
-    "player",
-    "team",
-    "supporter",
-    "manager",
-    "admin",
-  ];
-
-  return allowedRoles.includes(value)
-    ? value
-    : "user";
-}
-
-// ============================================================
-// REMOVE PASSWORD BEFORE PUTTING USER INTO APP STATE
-// ============================================================
-
-function publicUser(account) {
-  if (!account) return null;
-
-  const {
-    password,
-    confirmPassword,
-    ...safeUser
-  } = account;
-
-  return safeUser;
 }
 
 // ============================================================
 // AUTH PROVIDER
 // ============================================================
 
+export function AuthProvider({
+  children,
+}) {
+  // ==========================================================
+  // CURRENT USER
+  // ==========================================================
 
-const PROFILE_PREFIX = "jtown_hoops_profile_v2::";
+  const [
+    user,
+    setUserState,
+  ] = useState(
+    loadUser
+  );
 
-function profileKeyForEmail(email) {
-  const cleanEmail = String(email || "").trim().toLowerCase();
-  return cleanEmail ? `${PROFILE_PREFIX}${cleanEmail}` : null;
-}
+  // ==========================================================
+  // AUTH LOADING STATE
+  // ==========================================================
 
-function createCleanProfileForAccount(account) {
-  const key = profileKeyForEmail(account?.email);
-  if (!key) return;
-
-  const role = String(account?.role || account?.accountType || "user");
-  const normalizedRole =
-    role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
-
-  const profile = {
-    name:
-      account?.name ||
-      account?.fullName ||
-      account?.teamName ||
-      account?.managerFullName ||
-      "J-Town Member",
-    email: account?.email || "",
-    phone: account?.phone || "",
-    location: account?.location || account?.address || "",
-    birthday: account?.birthday || account?.dateOfBirth || "",
-    bio: account?.bio || "",
-    avatar: "",
-    coverImage: "",
-    role: normalizedRole,
-  };
-
-  localStorage.setItem(key, JSON.stringify(profile));
-}
-
-export function AuthProvider({ children }) {
-  const [user, setUserState] = useState(loadUser);
-
-  const [accounts, setAccounts] =
-    useState(loadAccounts);
+  const [
+    authLoading,
+    setAuthLoading,
+  ] = useState(false);
 
   // ==========================================================
   // SET CURRENT USER
   // ==========================================================
 
-  const setUser = (nextUser) => {
+  const setUser = (
+    nextUser
+  ) => {
     const value =
-      typeof nextUser === "function"
+      typeof nextUser ===
+      "function"
         ? nextUser(user)
         : nextUser;
 
-    // Keep the CURRENT authenticated account across refreshes.
-    // This stores only the public user object; passwords are never stored here.
-    if (value) {
-      localStorage.setItem(USER_KEY, JSON.stringify(value));
-    } else {
-      localStorage.removeItem(USER_KEY);
+    // --------------------------------------------------------
+    // REMOVE USER
+    // --------------------------------------------------------
+
+    if (!value) {
+      safeRemoveItem(
+        USER_KEY
+      );
+
+      setUserState(
+        null
+      );
+
+      return;
     }
 
-    setUserState(value);
+    // --------------------------------------------------------
+    // CREATE SMALL USER
+    // --------------------------------------------------------
+
+    const smallUser =
+      createStorageUser(
+        value
+      );
+
+    // --------------------------------------------------------
+    // SAVE ONLY SMALL USER
+    // --------------------------------------------------------
+
+    safeSetItem(
+      USER_KEY,
+      JSON.stringify(
+        smallUser
+      )
+    );
+
+    // --------------------------------------------------------
+    // UPDATE REACT
+    // --------------------------------------------------------
+
+    setUserState(
+      smallUser
+    );
   };
 
   // ==========================================================
   // REGISTER
+  // ==========================================================
   //
-  // ALL REGISTRATION SOURCES USE THIS FUNCTION:
+  // Registration creates the account in MongoDB.
   //
-  // About Us
-  // Account -> Create Account
-  // Register.jsx
+  // It DOES NOT automatically log the new member in.
   //
-  // Registration DOES NOT automatically sign the person in.
+  // App.jsx will redirect the member to /account.
+  //
   // ==========================================================
 
-  const register = (data) => {
-    const email = String(data?.email || "")
-      .trim()
-      .toLowerCase();
+  const register = async (
+    data
+  ) => {
+    setAuthLoading(true);
 
-    const password = String(
-      data?.password || ""
-    );
+    try {
+      const response =
+        await authAPI.register(
+          data
+        );
 
-    // --------------------------------------------------------
-    // VALIDATE EMAIL
-    // --------------------------------------------------------
+      if (
+        !response?.success
+      ) {
+        throw new Error(
+          response?.message ||
+            "Registration failed."
+        );
+      }
 
-    if (!email) {
-      throw new Error(
-        "An email address is required."
+      // ------------------------------------------------------
+      // DO NOT AUTO LOGIN
+      // ------------------------------------------------------
+
+      safeRemoveItem(
+        USER_KEY
+      );
+
+      safeRemoveItem(
+        TOKEN_KEY
+      );
+
+      setUserState(
+        null
+      );
+
+      return (
+        response.user ||
+        response
+      );
+    } catch (error) {
+      console.error(
+        "Registration error:",
+        error
+      );
+
+      throw error;
+    } finally {
+      setAuthLoading(
+        false
       );
     }
-
-    // --------------------------------------------------------
-    // VALIDATE PASSWORD
-    // --------------------------------------------------------
-
-    if (password.length < 6) {
-      throw new Error(
-        "Password must contain at least 6 characters."
-      );
-    }
-
-    // --------------------------------------------------------
-    // PREVENT DUPLICATE EMAILS
-    // --------------------------------------------------------
-
-    const existingAccount = accounts.some(
-      (account) =>
-        String(account.email || "")
-          .trim()
-          .toLowerCase() === email
-    );
-
-    if (existingAccount) {
-      throw new Error(
-        "An account with this email already exists. Please sign in."
-      );
-    }
-
-    // --------------------------------------------------------
-    // PRESERVE REGISTRATION ROLE
-    // --------------------------------------------------------
-
-    const role = cleanRole(
-      data?.role || data?.accountType
-    );
-
-    // --------------------------------------------------------
-    // CREATE ACCOUNT
-    // --------------------------------------------------------
-
-    const newAccount = {
-      ...data,
-
-      id:
-        data?.id ||
-        `${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 9)}`,
-
-      email,
-
-      password,
-
-      role,
-
-      accountType: role,
-
-      createdAt:
-        data?.createdAt ||
-        new Date().toISOString(),
-    };
-
-    // --------------------------------------------------------
-    // SAVE ACCOUNT
-    // --------------------------------------------------------
-
-    const updatedAccounts = [
-      ...accounts,
-      newAccount,
-    ];
-
-    localStorage.setItem(
-      ACCOUNTS_KEY,
-      JSON.stringify(updatedAccounts)
-    );
-
-    setAccounts(updatedAccounts);
-
-    // Create a completely separate profile for this newly registered account.
-    // This intentionally does NOT copy avatar/cover data from any previous user.
-    const newProfileKey = profileKeyForEmail(newAccount.email);
-    if (newProfileKey && !localStorage.getItem(newProfileKey)) {
-      createCleanProfileForAccount(newAccount);
-    }
-
-    // ========================================================
-    // CLEAR ANY PREVIOUS SIGNED-IN SESSION
-    // ========================================================
-    //
-    // If Admin (or any other account) is currently signed in
-    // while a new User / Player / Team / Supporter / Manager
-    // account is registered, the previous session must end.
-    //
-    // The new account is created successfully, but it is NOT
-    // automatically signed in. The person must sign in using
-    // the credentials they just registered.
-    // ========================================================
-
-    localStorage.removeItem(USER_KEY);
-    setUserState(null);
-
-    return publicUser(newAccount);
   };
 
   // ==========================================================
   // LOGIN
   // ==========================================================
 
-  const login = ({ email, password }) => {
-    const cleanEmail = String(email || "").trim().toLowerCase();
-    const cleanPassword = String(password || "");
+  const login = async ({
+    email,
+    password,
+  }) => {
+    setAuthLoading(true);
 
-    if (!cleanEmail) {
-      throw new Error("Please enter your email address.");
-    }
+    try {
+      // ------------------------------------------------------
+      // SEND CREDENTIALS TO BACKEND
+      // ------------------------------------------------------
 
-    if (!cleanPassword) {
-      throw new Error("Please enter your password.");
-    }
+      const response =
+        await authAPI.login({
+          email,
+          password,
+        });
 
-    const account = accounts.find(
-      (item) =>
-        String(item.email || "").trim().toLowerCase() === cleanEmail
-    );
+      // ------------------------------------------------------
+      // CHECK RESPONSE
+      // ------------------------------------------------------
 
-    const adminEmails = getAdminEmails();
-    const isConfiguredAdmin = adminEmails.includes(cleanEmail);
-    const configuredAdminPassword = String(
-      import.meta.env.VITE_ADMIN_PASSWORD || ""
-    );
-
-    // ========================================================
-    // ADMIN LOGIN
-    // Supports BOTH:
-    //   VITE_ADMIN_EMAILS=email1,email2
-    // and:
-    //   VITE_ADMIN_EMAIL=email
-    //
-    // If VITE_ADMIN_PASSWORD exists, it is authoritative.
-    // Otherwise an existing registered record for that admin email
-    // supplies the password. This keeps compatibility with the
-    // earlier J-Town setup without turning normal users into admins.
-    // ========================================================
-    if (isConfiguredAdmin) {
-      if (configuredAdminPassword) {
-        if (cleanPassword !== configuredAdminPassword) {
-          throw new Error("Incorrect email or password.");
-        }
-      } else if (account?.password) {
-        if (String(account.password) !== cleanPassword) {
-          throw new Error("Incorrect email or password.");
-        }
+      if (
+        !response?.success
+      ) {
+        throw new Error(
+          response?.message ||
+            "Login failed."
+        );
       }
 
-      const adminUser = publicUser({
-        ...(account || {}),
-        id: account?.id || "jtown-admin",
-        name:
-          account?.name ||
-          account?.fullName ||
-          account?.managerFullName ||
-          "J-Town Admin",
-        email: cleanEmail,
-        role: "admin",
-        accountType: "admin",
-      });
+      // ------------------------------------------------------
+      // CHECK TOKEN
+      // ------------------------------------------------------
 
-      const adminProfileKey = profileKeyForEmail(adminUser.email);
-      if (adminProfileKey && !localStorage.getItem(adminProfileKey)) {
-        createCleanProfileForAccount(adminUser);
+      if (!response.token) {
+        throw new Error(
+          "The backend did not return an authentication token."
+        );
       }
 
-      setUser(adminUser);
-      return adminUser;
-    }
+      // ------------------------------------------------------
+      // CHECK USER
+      // ------------------------------------------------------
 
-    // ========================================================
-    // NORMAL REGISTERED ACCOUNT LOGIN
-    // ========================================================
-    if (!account) {
-      throw new Error(
-        "No J-Town Hoops account was found with this email."
+      if (!response.user) {
+        throw new Error(
+          "The backend did not return the user account."
+        );
+      }
+
+      // ------------------------------------------------------
+      // CREATE SMALL USER FIRST
+      // ------------------------------------------------------
+
+      const signedInUser =
+        createStorageUser(
+          response.user
+        );
+
+      // ------------------------------------------------------
+      // SAVE TOKEN
+      // ------------------------------------------------------
+
+      safeSetItem(
+        TOKEN_KEY,
+        response.token
+      );
+
+      // ------------------------------------------------------
+      // SAVE SMALL USER
+      // ------------------------------------------------------
+
+      safeSetItem(
+        USER_KEY,
+        JSON.stringify(
+          signedInUser
+        )
+      );
+
+      // ------------------------------------------------------
+      // UPDATE REACT
+      // ------------------------------------------------------
+
+      setUserState(
+        signedInUser
+      );
+
+      // ------------------------------------------------------
+      // LOGIN SUCCESS
+      // ------------------------------------------------------
+
+      return signedInUser;
+    } catch (error) {
+      // ------------------------------------------------------
+      // FAILED LOGIN
+      // ------------------------------------------------------
+      //
+      // Wrong password / wrong email should NOT crash the page.
+      //
+      // We remove only the failed authentication session.
+      //
+      // ------------------------------------------------------
+
+      safeRemoveItem(
+        TOKEN_KEY
+      );
+
+      safeRemoveItem(
+        USER_KEY
+      );
+
+      setUserState(
+        null
+      );
+
+      console.error(
+        "Login error:",
+        error
+      );
+
+      // Account.jsx receives this and can display:
+      //
+      // Incorrect email or password.
+      //
+      throw error;
+    } finally {
+      setAuthLoading(
+        false
       );
     }
-
-    if (String(account.password || "") !== cleanPassword) {
-      throw new Error("Incorrect email or password.");
-    }
-
-    const signedInUser = publicUser({
-      ...account,
-      role: cleanRole(account.role || account.accountType),
-      accountType: cleanRole(account.accountType || account.role),
-    });
-
-    const signedInProfileKey = profileKeyForEmail(signedInUser.email);
-    if (
-      signedInProfileKey &&
-      !localStorage.getItem(signedInProfileKey)
-    ) {
-      createCleanProfileForAccount(signedInUser);
-    }
-
-    setUser(signedInUser);
-    return signedInUser;
   };
+
+  // ==========================================================
+  // REFRESH PROFILE
+  // ==========================================================
+  //
+  // GET /api/v1/protected/profile
+  //
+  // ==========================================================
+
+  const refreshProfile =
+    async () => {
+      setAuthLoading(true);
+
+      try {
+        const response =
+          await authAPI.profile();
+
+        if (
+          !response?.success
+        ) {
+          throw new Error(
+            response?.message ||
+              "Could not load profile."
+          );
+        }
+
+        if (
+          response?.user
+        ) {
+          // --------------------------------------------------
+          // CREATE SMALL VERSION
+          // --------------------------------------------------
+
+          const updatedUser =
+            createStorageUser(
+              response.user
+            );
+
+          // --------------------------------------------------
+          // SAVE SMALL VERSION ONLY
+          // --------------------------------------------------
+
+          safeSetItem(
+            USER_KEY,
+            JSON.stringify(
+              updatedUser
+            )
+          );
+
+          // --------------------------------------------------
+          // UPDATE REACT
+          // --------------------------------------------------
+
+          setUserState(
+            updatedUser
+          );
+
+          return updatedUser;
+        }
+
+        return null;
+      } catch (error) {
+        console.error(
+          "Could not refresh profile:",
+          error
+        );
+
+        throw error;
+      } finally {
+        setAuthLoading(
+          false
+        );
+      }
+    };
+
+  // ==========================================================
+  // CHECK ADMIN ACCESS
+  // ==========================================================
+
+  const checkAdminAccess =
+    async () => {
+      try {
+        const response =
+          await authAPI.admin();
+
+        return response;
+      } catch (error) {
+        console.error(
+          "Admin access denied:",
+          error
+        );
+
+        throw error;
+      }
+    };
+
+  // ==========================================================
+  // CHECK MANAGEMENT ACCESS
+  // ==========================================================
+
+  const checkManagementAccess =
+    async () => {
+      try {
+        const response =
+          await authAPI.management();
+
+        return response;
+      } catch (error) {
+        console.error(
+          "Management access denied:",
+          error
+        );
+
+        throw error;
+      }
+    };
 
   // ==========================================================
   // LOGOUT
   // ==========================================================
 
-  const logout = () => {
-    setUser(null);
+  const logout = async () => {
+    try {
+      // ------------------------------------------------------
+      // TELL BACKEND
+      // ------------------------------------------------------
+
+      await authAPI.signOut();
+    } catch (error) {
+      // ------------------------------------------------------
+      // RENDER MAY BE ASLEEP/OFFLINE.
+      //
+      // THIS MUST NOT PREVENT LOGOUT.
+      // ------------------------------------------------------
+
+      console.warn(
+        "Backend sign-out request failed:",
+        error
+      );
+    } finally {
+      // ------------------------------------------------------
+      // REMOVE TOKEN
+      // ------------------------------------------------------
+
+      safeRemoveItem(
+        TOKEN_KEY
+      );
+
+      // ------------------------------------------------------
+      // REMOVE CURRENT V3 USER ONLY
+      // ------------------------------------------------------
+      //
+      // IMPORTANT:
+      //
+      // We DO NOT touch:
+      //
+      // jtown-hoops-current-user-v1
+      //
+      // so your old admin account data remains untouched.
+      //
+      // ------------------------------------------------------
+
+      safeRemoveItem(
+        USER_KEY
+      );
+
+      // ------------------------------------------------------
+      // CLEAR REACT USER
+      // ------------------------------------------------------
+
+      setUserState(
+        null
+      );
+    }
   };
 
   // ==========================================================
-  // AUTH VALUES AVAILABLE THROUGHOUT WEBSITE
+  // ROLE VALUES
   // ==========================================================
 
-  const value = useMemo(
-    () => ({
-      // Current signed-in user
-      user,
+  const userRole =
+    user?.role
+      ? String(
+          user.role
+        ).toLowerCase()
+      : null;
 
-      // Allows profile/account updates
-      setUser,
+  const isAdmin =
+    userRole ===
+    "admin";
 
-      // Authentication
-      login,
-      register,
-      logout,
+  const isManager =
+    userRole ===
+    "manager";
 
-      // Convenience values
-      isAdmin: user?.role === "admin",
+  const isManagement =
+    isAdmin ||
+    isManager;
 
-      isSignedIn: Boolean(user),
+  const isSignedIn =
+    Boolean(user);
 
-      userRole:
-        user?.role || null,
-    }),
-    [user, accounts]
-  );
+  // ==========================================================
+  // CONTEXT VALUE
+  // ==========================================================
+
+  const value =
+    useMemo(
+      () => ({
+        // ----------------------------------------------------
+        // CURRENT USER
+        // ----------------------------------------------------
+
+        user,
+
+        setUser,
+
+        // ----------------------------------------------------
+        // AUTHENTICATION
+        // ----------------------------------------------------
+
+        login,
+
+        register,
+
+        logout,
+
+        // ----------------------------------------------------
+        // BACKEND PROFILE
+        // ----------------------------------------------------
+
+        refreshProfile,
+
+        // ----------------------------------------------------
+        // BACKEND ROLE CHECKS
+        // ----------------------------------------------------
+
+        checkAdminAccess,
+
+        checkManagementAccess,
+
+        // ----------------------------------------------------
+        // LOADING
+        // ----------------------------------------------------
+
+        authLoading,
+
+        // ----------------------------------------------------
+        // CONVENIENCE VALUES
+        // ----------------------------------------------------
+
+        isSignedIn,
+
+        isAdmin,
+
+        isManager,
+
+        isManagement,
+
+        userRole,
+      }),
+      [
+        user,
+        authLoading,
+        userRole,
+        isAdmin,
+        isManager,
+        isManagement,
+        isSignedIn,
+      ]
+    );
 
   // ==========================================================
   // PROVIDER
   // ==========================================================
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={value}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
 // ============================================================
-// USE AUTH HOOK
+// USE AUTH
 // ============================================================
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context =
+    useContext(
+      AuthContext
+    );
 
   if (!context) {
     throw new Error(
