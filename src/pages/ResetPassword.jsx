@@ -182,7 +182,7 @@ export default function ResetPassword() {
   // ==========================================================
 
   return (
-    <main className="min-h-screen bg-black px-4 py-16 text-white sm:px-6">
+    <main className="min-h-screen bg-black px-4 py-16 text-white text-center sm:px-6">
 
       <div className="mx-auto w-full max-w-xl">
 
