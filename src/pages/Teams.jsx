@@ -412,15 +412,23 @@ export default function Teams() {
       // Support a few sensible backend response names.
       // Your upload controller only needs to return one of them.
 
-      const uploadedUrl =
-        response?.url ||
-        response?.secureUrl ||
-        response?.secure_url ||
-        response?.image?.url ||
-        response?.image?.secureUrl ||
-        response?.image?.secure_url ||
-        response?.file?.url ||
-        "";
+const uploadedUrl =
+  // CURRENT J-TOWN HOOPS BACKEND FORMAT
+  response?.media?.url ||
+  response?.media?.secureUrl ||
+  response?.media?.secure_url ||
+
+  // OTHER SUPPORTED FORMATS
+  response?.url ||
+  response?.secureUrl ||
+  response?.secure_url ||
+  response?.image?.url ||
+  response?.image?.secureUrl ||
+  response?.image?.secure_url ||
+  response?.file?.url ||
+  response?.file?.secureUrl ||
+  response?.file?.secure_url ||
+  "";
 
       if (!uploadedUrl) {
         throw new Error(
