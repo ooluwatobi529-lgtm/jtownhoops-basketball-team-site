@@ -44,10 +44,6 @@ const API_URL =
 //
 // in localStorage.
 //
-// Those large items are what caused the previous:
-//
-// QuotaExceededError
-//
 // ============================================================
 
 const TOKEN_KEY = "jtown-hoops-token";
@@ -247,17 +243,6 @@ export const authAPI = {
   // FORGOT PASSWORD
   // POST /api/v1/auth/forgot-password
   // ==========================================================
-  //
-  // User enters their email.
-  //
-  // Backend:
-  //
-  // 1. Finds the account
-  // 2. Creates a secure reset token
-  // 3. Stores the HASHED token
-  // 4. Emails the reset link
-  //
-  // ==========================================================
 
   forgotPassword: async ({
     email,
@@ -278,14 +263,6 @@ export const authAPI = {
   // ==========================================================
   // RESET PASSWORD
   // POST /api/v1/auth/reset-password
-  // ==========================================================
-  //
-  // This is called from:
-  //
-  // ResetPassword.jsx
-  //
-  // after the user clicks the link in their email.
-  //
   // ==========================================================
 
   resetPassword: async ({
@@ -312,12 +289,6 @@ export const authAPI = {
   // CHANGE PASSWORD
   // PATCH /api/v1/auth/change-password
   // ==========================================================
-  //
-  // User MUST already be signed in.
-  //
-  // JWT is automatically attached above.
-  //
-  // ==========================================================
 
   changePassword: async ({
     currentPassword,
@@ -342,14 +313,6 @@ export const authAPI = {
   // ==========================================================
   // DELETE CURRENT ACCOUNT
   // DELETE /api/v1/auth/account
-  // ==========================================================
-  //
-  // User must:
-  //
-  // 1. Be signed in
-  // 2. Enter their password
-  // 3. Confirm DELETE
-  //
   // ==========================================================
 
   deleteAccount: async ({
@@ -417,12 +380,129 @@ export const authAPI = {
 
 
 // ============================================================
+// TEAMS API
+// ============================================================
+//
+// PUBLIC:
+//
+// GET    /api/v1/teams
+// GET    /api/v1/teams/:id
+//
+// ADMIN:
+//
+// POST   /api/v1/teams
+// PUT    /api/v1/teams/:id
+// DELETE /api/v1/teams/:id
+//
+// JWT is automatically attached by request() whenever
+// a J-Town Hoops user is signed in.
+//
+// ============================================================
+
+export const teamAPI = {
+
+
+  // ==========================================================
+  // GET ALL TEAMS
+  // PUBLIC
+  // ==========================================================
+
+  getAll: async () => {
+    return request(
+      "/api/v1/teams",
+      {
+        method: "GET",
+      }
+    );
+  },
+
+
+  // ==========================================================
+  // GET ONE TEAM
+  // PUBLIC
+  // ==========================================================
+
+  getOne: async (
+    teamId
+  ) => {
+    return request(
+      `/api/v1/teams/${teamId}`,
+      {
+        method: "GET",
+      }
+    );
+  },
+
+
+  // ==========================================================
+  // CREATE TEAM
+  // ADMIN ONLY
+  // ==========================================================
+
+  create: async (
+    teamData
+  ) => {
+    return request(
+      "/api/v1/teams",
+      {
+        method: "POST",
+
+        body: JSON.stringify(
+          teamData
+        ),
+      }
+    );
+  },
+
+
+  // ==========================================================
+  // UPDATE TEAM
+  // ADMIN ONLY
+  // ==========================================================
+
+  update: async (
+    teamId,
+    teamData
+  ) => {
+    return request(
+      `/api/v1/teams/${teamId}`,
+      {
+        method: "PUT",
+
+        body: JSON.stringify(
+          teamData
+        ),
+      }
+    );
+  },
+
+
+  // ==========================================================
+  // DELETE TEAM
+  // ADMIN ONLY
+  // ==========================================================
+
+  remove: async (
+    teamId
+  ) => {
+    return request(
+      `/api/v1/teams/${teamId}`,
+      {
+        method: "DELETE",
+      }
+    );
+  },
+};
+
+
+// ============================================================
 // GENERAL API OBJECT
 // ============================================================
 
 export const api = {
   request,
   auth: authAPI,
+  teams: teamAPI,
 };
 
 
