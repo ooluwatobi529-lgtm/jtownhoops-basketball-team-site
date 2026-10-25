@@ -69,7 +69,7 @@ body {
   margin: 0;
   padding: 0;
   font-family: 'Inter', sans-serif;
-  background-color: #0d0d0c !important; /* Forces background priority over framework layers */
+background-color: var(--bg) !important; /* Forces background priority over framework layers */
   color: #f3f4f6;
 }
 
@@ -1509,7 +1509,6 @@ code {
 }
 
 /* Smooth visual transition when changing themes */
-body,
 button,
 a,
 
@@ -1981,4 +1980,106 @@ body,
     color 300ms ease,
     border-color 300ms ease,
     box-shadow 300ms ease;
+}
+
+
+
+/* ============================================================
+   J-TOWN HOOPS — THEME COMPATIBILITY LAYER
+   ============================================================ */
+
+html,
+body,
+#root {
+  background-color: var(--bg) !important;
+  color: var(--text);
+}
+
+html {
+  color-scheme: normal;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* Keep existing sports effects while making surfaces dynamic. */
+
+.jt-themed-page {
+  background-color: var(--jt-bg);
+  color: var(--jt-text);
+}
+
+.jt-themed-surface {
+  background-color: var(--jt-surface);
+  border-color: var(--jt-border);
+  color: var(--jt-text);
+}
+
+.jt-themed-surface-light {
+  background-color: var(--jt-surface-light);
+  color: var(--jt-text);
+}
+
+/* Common accent styling */
+
+.jt-accent-text {
+  color: var(--jt-accent) !important;
+}
+
+.jt-accent-bg {
+  background-color: var(--jt-accent) !important;
+}
+
+.jt-accent-border {
+  border-color: var(--jt-accent) !important;
+}
+
+.jt-nav-active,
+.jt-mobile-nav-active {
+  color: var(--jt-accent) !important;
+  background-color:
+    rgba(var(--jt-accent-rgb), 0.12) !important;
+}
+
+.jt-theme-button-active {
+  border-color: var(--jt-accent) !important;
+  box-shadow:
+    0 0 18px rgba(var(--jt-accent-rgb), 0.25);
+}
+
+.section-title::after {
+  background: linear-gradient(
+    90deg,
+    var(--jt-accent),
+    var(--jt-accent-bright),
+    transparent
+  ) !important;
+}
+
+::selection {
+  background-color:
+    rgba(var(--jt-accent-rgb), 0.35);
+}
+
+/* Smooth changes on every screen size */
+
+html,
+body,
+#root,
+.jt-themed-page,
+.jt-themed-surface,
+.jt-themed-surface-light {
+  transition:
+    background-color 250ms ease,
+    color 250ms ease,
+    border-color 250ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  body,
+  #root {
+    transition: none;
+  }
 }

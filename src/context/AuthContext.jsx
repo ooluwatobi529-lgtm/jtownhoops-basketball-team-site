@@ -1,792 +1,601 @@
-// src/context/AuthContext.jsx
 
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import { authAPI } from "../services/api";
 
 // ============================================================
-// J-TOWN HOOPS AUTH CONTEXT
+// 🏀 J-TOWN HOOPS AUTHENTICATION CONTEXT
+// ============================================================
+// Backend-verified authentication
+// MongoDB profile synchronization
+// Cloudinary profile and cover images
+// Session restoration without sign-in flicker
+// JWT + HTTP-only cookie compatibility
 // ============================================================
 
 const AuthContext = createContext(null);
 
-// ============================================================
-// LOCAL STORAGE KEYS
-// ============================================================
-//
-// IMPORTANT:
-//
-// LocalStorage should contain ONLY SMALL authentication data.
-//
-// DO NOT store:
-// - profile pictures
-// - cover pictures
-// - Base64 images
-// - uploaded media
-// - large arrays
-//
-// MongoDB/backend should eventually hold persistent profile
-// media.
-//
-// ============================================================
-
-const USER_KEY =
-  "jtown-hoops-current-user-v3";
-
-const TOKEN_KEY =
-  "jtown-hoops-token";
+const USER_KEY = "jtown-hoops-current-user-v3";
+const TOKEN_KEY = "jtown-hoops-token";
 
 // ============================================================
-// CREATE SMALL STORAGE USER
-// ============================================================
-//
-// This is the most important part of this fix.
-//
-// We deliberately choose the small values that are allowed
-// to enter localStorage instead of copying the entire user.
-//
+// SAFE STORAGE
 // ============================================================
 
-function createStorageUser(account) {
-  if (!account) {
+function safeGetItem(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
     return null;
   }
-
-  return {
-    id:
-      account.id ||
-      account._id ||
-      "",
-
-    name:
-      account.name ||
-      "",
-
-    email:
-      account.email ||
-      "",
-
-    role:
-      account.role ||
-      "user",
-
-    phone:
-      account.phone ||
-      "",
-
-    address:
-      account.address ||
-      "",
-
-    nationality:
-      account.nationality ||
-      "",
-
-    occupation:
-      account.occupation ||
-      "",
-
-    bio:
-      account.bio ||
-      "",
-
-    isActive:
-      account.isActive ??
-      true,
-
-    isVerified:
-      account.isVerified ??
-      false,
-
-    lastLogin:
-      account.lastLogin ||
-      null,
-
-    createdAt:
-      account.createdAt ||
-      null,
-
-    updatedAt:
-      account.updatedAt ||
-      null,
-  };
 }
-
-// ============================================================
-// SAFE LOCAL STORAGE SET
-// ============================================================
-//
-// A storage problem must NEVER destroy a successful login.
-//
-// If the browser refuses localStorage, React can still keep
-// the signed-in user for the current session.
-//
-// ============================================================
 
 function safeSetItem(key, value) {
   try {
-    localStorage.setItem(
-      key,
-      value
-    );
-
+    localStorage.setItem(key, value);
     return true;
   } catch (error) {
-    console.warn(
-      `Could not save ${key} to localStorage:`,
-      error
-    );
-
+    console.warn("Storage write failed:", error);
     return false;
   }
 }
 
-// ============================================================
-// SAFE LOCAL STORAGE REMOVE
-// ============================================================
-
 function safeRemoveItem(key) {
   try {
-    localStorage.removeItem(
-      key
-    );
-  } catch (error) {
-    console.warn(
-      `Could not remove ${key} from localStorage:`,
-      error
-    );
+    localStorage.removeItem(key);
+  } catch {
+    // Ignore unavailable browser storage.
   }
 }
 
 // ============================================================
-// LOAD SAVED USER
+// SAFE MEDIA URL
 // ============================================================
 
-function loadUser() {
+function safeMediaUrl(value) {
+  if (typeof value !== "string") return "";
+
+  const url = value.trim();
+
+  if (!url || url.length > 2048) return "";
+
   try {
-    const savedUser =
-      localStorage.getItem(
-        USER_KEY
-      );
+    const parsed = new URL(url);
 
-    if (!savedUser) {
-      return null;
-    }
+    return parsed.protocol === "https:" ? url : "";
+  } catch {
+    return "";
+  }
+}
 
-    const parsedUser =
-      JSON.parse(
-        savedUser
-      );
+// ============================================================
+// NORMALIZE USER
+// ============================================================
 
-    if (
-      !parsedUser ||
-      !parsedUser.email
-    ) {
-      return null;
-    }
+function normalizeUser(account) {
+  if (!account) return null;
 
-    // --------------------------------------------------------
-    // CLEAN OLD V3 DATA IF NECESSARY
-    // --------------------------------------------------------
+  return {
+    id: String(account.id || account._id || ""),
 
-    const smallUser =
-      createStorageUser(
-        parsedUser
-      );
+    name: account.name || "",
+    email: account.email || "",
+    role: account.role || "user",
 
+    phone: account.phone || "",
+    address: account.address || "",
+    nationality: account.nationality || "",
+    occupation: account.occupation || "",
+
+    birthday: account.birthday || "",
+    bio: account.bio || "",
+
+    profilePicture: safeMediaUrl(
+      account.profilePicture ||
+        account.avatarUrl ||
+        account.avatar ||
+        ""
+    ),
+
+    coverImage: safeMediaUrl(
+      account.coverImage ||
+        account.coverPicture ||
+        account.coverPhoto ||
+        ""
+    ),
+
+    playerInfo: account.playerInfo || {},
+    teamInfo: account.teamInfo || {},
+    managerInfo: account.managerInfo || {},
+
+    isActive: account.isActive ?? true,
+    isVerified: account.isVerified ?? false,
+
+    lastLogin: account.lastLogin || null,
+    createdAt: account.createdAt || null,
+    updatedAt: account.updatedAt || null,
+  };
+}
+
+// ============================================================
+// USER CACHE
+// ============================================================
+// Cached profile data is for display/storage only.
+// It never proves that a session is authenticated.
+// ============================================================
+
+function saveUser(account) {
+  const normalized = normalizeUser(account);
+
+  if (normalized) {
     safeSetItem(
       USER_KEY,
-      JSON.stringify(
-        smallUser
-      )
+      JSON.stringify(normalized)
     );
+  } else {
+    safeRemoveItem(USER_KEY);
+  }
 
-    return smallUser;
-  } catch (error) {
-    console.error(
-      "Could not restore signed-in user:",
-      error
-    );
+  return normalized;
+}
 
-    safeRemoveItem(
-      USER_KEY
-    );
+function loadCachedUser() {
+  try {
+    const stored = safeGetItem(USER_KEY);
 
+    if (!stored) return null;
+
+    const parsed = JSON.parse(stored);
+
+    if (!parsed?.email) return null;
+
+    return normalizeUser(parsed);
+  } catch {
     return null;
   }
+}
+
+function clearLocalAuth() {
+  safeRemoveItem(TOKEN_KEY);
+  safeRemoveItem(USER_KEY);
+}
+
+// ============================================================
+// ACCOUNT IDENTITY
+// ============================================================
+
+function isSameAccount(first, second) {
+  if (!first || !second) return false;
+
+  const firstId = first.id || first._id;
+  const secondId = second.id || second._id;
+
+  if (firstId && secondId) {
+    return String(firstId) === String(secondId);
+  }
+
+  return Boolean(
+    first.email &&
+      second.email &&
+      first.email.toLowerCase() ===
+        second.email.toLowerCase()
+  );
 }
 
 // ============================================================
 // AUTH PROVIDER
 // ============================================================
 
-export function AuthProvider({
-  children,
-}) {
-  // ==========================================================
-  // CURRENT USER
-  // ==========================================================
+export function AuthProvider({ children }) {
+  const [user, setUserState] = useState(null);
 
-  const [
-    user,
-    setUserState,
-  ] = useState(
-    loadUser
-  );
+  const [authLoading, setAuthLoading] =
+    useState(true);
 
-  // ==========================================================
-  // AUTH LOADING STATE
-  // ==========================================================
+  const [authInitialized, setAuthInitialized] =
+    useState(false);
 
-  const [
-    authLoading,
-    setAuthLoading,
-  ] = useState(false);
+  // Each authentication operation receives a version.
+  // Older session responses cannot overwrite newer ones.
+  const authVersion = useRef(0);
 
   // ==========================================================
-  // SET CURRENT USER
+  // SET USER
   // ==========================================================
 
-  const setUser = (
-    nextUser
-  ) => {
-    const value =
-      typeof nextUser ===
-      "function"
-        ? nextUser(user)
-        : nextUser;
+  const setUser = useCallback((nextUser) => {
+    setUserState((previousUser) => {
+      const resolved =
+        typeof nextUser === "function"
+          ? nextUser(previousUser)
+          : nextUser;
 
-    // --------------------------------------------------------
-    // REMOVE USER
-    // --------------------------------------------------------
-
-    if (!value) {
-      safeRemoveItem(
-        USER_KEY
-      );
-
-      setUserState(
-        null
-      );
-
-      return;
-    }
-
-    // --------------------------------------------------------
-    // CREATE SMALL USER
-    // --------------------------------------------------------
-
-    const smallUser =
-      createStorageUser(
-        value
-      );
-
-    // --------------------------------------------------------
-    // SAVE ONLY SMALL USER
-    // --------------------------------------------------------
-
-    safeSetItem(
-      USER_KEY,
-      JSON.stringify(
-        smallUser
-      )
-    );
-
-    // --------------------------------------------------------
-    // UPDATE REACT
-    // --------------------------------------------------------
-
-    setUserState(
-      smallUser
-    );
-  };
-
-  // ==========================================================
-  // REGISTER
-  // ==========================================================
-  //
-  // Registration creates the account in MongoDB.
-  //
-  // It DOES NOT automatically log the new member in.
-  //
-  // App.jsx will redirect the member to /account.
-  //
-  // ==========================================================
-
-  const register = async (
-    data
-  ) => {
-    setAuthLoading(true);
-
-    try {
-      const response =
-        await authAPI.register(
-          data
-        );
-
-      if (
-        !response?.success
-      ) {
-        throw new Error(
-          response?.message ||
-            "Registration failed."
-        );
+      if (!resolved) {
+        saveUser(null);
+        return null;
       }
 
-      // ------------------------------------------------------
-      // DO NOT AUTO LOGIN
-      // ------------------------------------------------------
+      const merged =
+        isSameAccount(previousUser, resolved)
+          ? { ...previousUser, ...resolved }
+          : resolved;
 
-      safeRemoveItem(
-        USER_KEY
-      );
+      return saveUser(merged);
+    });
+  }, []);
 
-      safeRemoveItem(
-        TOKEN_KEY
-      );
+  // ==========================================================
+  // RESTORE AUTHENTICATED SESSION
+  // ==========================================================
+  // Do not show the sign-in interface until the
+  // backend has completed its initial session check.
+  // ==========================================================
 
-      setUserState(
-        null
-      );
+  useEffect(() => {
+    let cancelled = false;
 
-      return (
-        response.user ||
-        response
-      );
-    } catch (error) {
-      console.error(
-        "Registration error:",
-        error
-      );
+    const version = ++authVersion.current;
 
-      throw error;
-    } finally {
-      setAuthLoading(
-        false
-      );
+    async function restoreSession() {
+      setAuthLoading(true);
+      setAuthInitialized(false);
+
+      try {
+        const response = await authAPI.profile();
+
+        if (!response?.success || !response?.user) {
+          throw new Error(
+            "The backend did not verify the session."
+          );
+        }
+
+        if (
+          cancelled ||
+          version !== authVersion.current
+        ) {
+          return;
+        }
+
+        const verifiedUser = saveUser(
+          response.user
+        );
+
+        setUserState(verifiedUser);
+      } catch (error) {
+        if (
+          cancelled ||
+          version !== authVersion.current
+        ) {
+          return;
+        }
+
+        if (
+          error?.status === 401 ||
+          error?.status === 403
+        ) {
+          clearLocalAuth();
+        }
+
+        // Never authenticate from cached data alone.
+        setUserState(null);
+
+        console.warn(
+          "Session restoration failed:",
+          error
+        );
+      } finally {
+        if (
+          !cancelled &&
+          version === authVersion.current
+        ) {
+          setAuthLoading(false);
+          setAuthInitialized(true);
+        }
+      }
     }
-  };
+
+    restoreSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ==========================================================
   // LOGIN
   // ==========================================================
 
-  const login = async ({
-    email,
-    password,
-  }) => {
-    setAuthLoading(true);
+  const login = useCallback(
+    async ({ email, password }) => {
+      const version = ++authVersion.current;
 
-    try {
-      // ------------------------------------------------------
-      // SEND CREDENTIALS TO BACKEND
-      // ------------------------------------------------------
+      setAuthLoading(true);
 
-      const response =
-        await authAPI.login({
+      try {
+        const response = await authAPI.login({
           email,
           password,
         });
 
-      // ------------------------------------------------------
-      // CHECK RESPONSE
-      // ------------------------------------------------------
+        if (!response?.success || !response?.user) {
+          throw new Error(
+            response?.message || "Sign-in failed."
+          );
+        }
 
-      if (
-        !response?.success
-      ) {
-        throw new Error(
-          response?.message ||
-            "Login failed."
-        );
-      }
+        if (!response?.token) {
+          throw new Error(
+            "The backend did not return a JWT token."
+          );
+        }
 
-      // ------------------------------------------------------
-      // CHECK TOKEN
-      // ------------------------------------------------------
+        if (version !== authVersion.current) {
+          throw new Error(
+            "This sign-in attempt was superseded."
+          );
+        }
 
-      if (!response.token) {
-        throw new Error(
-          "The backend did not return an authentication token."
-        );
-      }
+        safeSetItem(TOKEN_KEY, response.token);
 
-      // ------------------------------------------------------
-      // CHECK USER
-      // ------------------------------------------------------
-
-      if (!response.user) {
-        throw new Error(
-          "The backend did not return the user account."
-        );
-      }
-
-      // ------------------------------------------------------
-      // CREATE SMALL USER FIRST
-      // ------------------------------------------------------
-
-      const signedInUser =
-        createStorageUser(
+        const signedInUser = saveUser(
           response.user
         );
 
-      // ------------------------------------------------------
-      // SAVE TOKEN
-      // ------------------------------------------------------
+        setUserState(signedInUser);
 
-      safeSetItem(
-        TOKEN_KEY,
-        response.token
-      );
+        return signedInUser;
+      } catch (error) {
+        if (version === authVersion.current) {
+          clearLocalAuth();
+          setUserState(null);
+        }
 
-      // ------------------------------------------------------
-      // SAVE SMALL USER
-      // ------------------------------------------------------
+        throw error;
+      } finally {
+        if (version === authVersion.current) {
+          setAuthLoading(false);
+          setAuthInitialized(true);
+        }
+      }
+    },
+    []
+  );
 
-      safeSetItem(
-        USER_KEY,
-        JSON.stringify(
-          signedInUser
-        )
-      );
+  // ==========================================================
+  // REGISTER
+  // ==========================================================
 
-      // ------------------------------------------------------
-      // UPDATE REACT
-      // ------------------------------------------------------
+  const register = useCallback(async (data) => {
+    const version = ++authVersion.current;
 
-      setUserState(
-        signedInUser
-      );
+    setAuthLoading(true);
 
-      // ------------------------------------------------------
-      // LOGIN SUCCESS
-      // ------------------------------------------------------
+    try {
+      const response = await authAPI.register(data);
 
-      return signedInUser;
-    } catch (error) {
-      // ------------------------------------------------------
-      // FAILED LOGIN
-      // ------------------------------------------------------
-      //
-      // Wrong password / wrong email should NOT crash the page.
-      //
-      // We remove only the failed authentication session.
-      //
-      // ------------------------------------------------------
+      if (!response?.success) {
+        throw new Error(
+          response?.message || "Registration failed."
+        );
+      }
 
-      safeRemoveItem(
-        TOKEN_KEY
-      );
+      if (version === authVersion.current) {
+        clearLocalAuth();
+        setUserState(null);
+      }
 
-      safeRemoveItem(
-        USER_KEY
-      );
-
-      setUserState(
-        null
-      );
-
-      console.error(
-        "Login error:",
-        error
-      );
-
-      // Account.jsx receives this and can display:
-      //
-      // Incorrect email or password.
-      //
-      throw error;
+      return response.user || response;
     } finally {
-      setAuthLoading(
-        false
-      );
+      if (version === authVersion.current) {
+        setAuthLoading(false);
+        setAuthInitialized(true);
+      }
     }
-  };
+  }, []);
 
   // ==========================================================
   // REFRESH PROFILE
   // ==========================================================
-  //
-  // GET /api/v1/protected/profile
-  //
-  // ==========================================================
 
-  const refreshProfile =
-    async () => {
-      setAuthLoading(true);
+  const refreshProfile = useCallback(async () => {
+    const version = authVersion.current;
 
-      try {
-        const response =
-          await authAPI.profile();
+    setAuthLoading(true);
 
-        if (
-          !response?.success
-        ) {
-          throw new Error(
-            response?.message ||
-              "Could not load profile."
-          );
-        }
+    try {
+      const response = await authAPI.profile();
 
-        if (
-          response?.user
-        ) {
-          // --------------------------------------------------
-          // CREATE SMALL VERSION
-          // --------------------------------------------------
+      if (!response?.success || !response?.user) {
+        throw new Error(
+          response?.message ||
+            "Could not refresh your profile."
+        );
+      }
 
-          const updatedUser =
-            createStorageUser(
-              response.user
-            );
-
-          // --------------------------------------------------
-          // SAVE SMALL VERSION ONLY
-          // --------------------------------------------------
-
-          safeSetItem(
-            USER_KEY,
-            JSON.stringify(
-              updatedUser
-            )
-          );
-
-          // --------------------------------------------------
-          // UPDATE REACT
-          // --------------------------------------------------
-
-          setUserState(
-            updatedUser
-          );
-
-          return updatedUser;
-        }
-
+      if (version !== authVersion.current) {
         return null;
-      } catch (error) {
-        console.error(
-          "Could not refresh profile:",
-          error
-        );
-
-        throw error;
-      } finally {
-        setAuthLoading(
-          false
-        );
       }
-    };
+
+      const updatedUser = saveUser(
+        response.user
+      );
+
+      setUserState(updatedUser);
+
+      return updatedUser;
+    } catch (error) {
+      if (
+        version === authVersion.current &&
+        (error?.status === 401 ||
+          error?.status === 403)
+      ) {
+        clearLocalAuth();
+        setUserState(null);
+      }
+
+      throw error;
+    } finally {
+      if (version === authVersion.current) {
+        setAuthLoading(false);
+      }
+    }
+  }, []);
 
   // ==========================================================
-  // CHECK ADMIN ACCESS
+  // UPDATE PROFILE MEDIA
   // ==========================================================
 
-  const checkAdminAccess =
+  const updateProfileMedia = useCallback(
+    ({ profilePicture, coverImage } = {}) => {
+      setUserState((previousUser) => {
+        if (!previousUser) return null;
+
+        const changes = {};
+
+        if (profilePicture !== undefined) {
+          changes.profilePicture =
+            safeMediaUrl(profilePicture);
+        }
+
+        if (coverImage !== undefined) {
+          changes.coverImage =
+            safeMediaUrl(coverImage);
+        }
+
+        return saveUser({
+          ...previousUser,
+          ...changes,
+        });
+      });
+    },
+    []
+  );
+
+  // ==========================================================
+  // ADMIN ACCESS
+  // ==========================================================
+
+  const checkAdminAccess = useCallback(
     async () => {
-      try {
-        const response =
-          await authAPI.admin();
-
-        return response;
-      } catch (error) {
-        console.error(
-          "Admin access denied:",
-          error
-        );
-
-        throw error;
-      }
-    };
+      return authAPI.admin();
+    },
+    []
+  );
 
   // ==========================================================
-  // CHECK MANAGEMENT ACCESS
+  // MANAGEMENT ACCESS
   // ==========================================================
 
-  const checkManagementAccess =
+  const checkManagementAccess = useCallback(
     async () => {
-      try {
-        const response =
-          await authAPI.management();
-
-        return response;
-      } catch (error) {
-        console.error(
-          "Management access denied:",
-          error
-        );
-
-        throw error;
-      }
-    };
+      return authAPI.management();
+    },
+    []
+  );
 
   // ==========================================================
   // LOGOUT
   // ==========================================================
 
-  const logout = async () => {
-    try {
-      // ------------------------------------------------------
-      // TELL BACKEND
-      // ------------------------------------------------------
+  const logout = useCallback(async () => {
+    const version = ++authVersion.current;
 
+    setAuthLoading(true);
+
+    try {
       await authAPI.signOut();
     } catch (error) {
-      // ------------------------------------------------------
-      // RENDER MAY BE ASLEEP/OFFLINE.
-      //
-      // THIS MUST NOT PREVENT LOGOUT.
-      // ------------------------------------------------------
-
       console.warn(
-        "Backend sign-out request failed:",
+        "Backend sign-out failed:",
         error
       );
     } finally {
-      // ------------------------------------------------------
-      // REMOVE TOKEN
-      // ------------------------------------------------------
-
-      safeRemoveItem(
-        TOKEN_KEY
-      );
-
-      // ------------------------------------------------------
-      // REMOVE CURRENT V3 USER ONLY
-      // ------------------------------------------------------
-      //
-      // IMPORTANT:
-      //
-      // We DO NOT touch:
-      //
-      // jtown-hoops-current-user-v1
-      //
-      // so your old admin account data remains untouched.
-      //
-      // ------------------------------------------------------
-
-      safeRemoveItem(
-        USER_KEY
-      );
-
-      // ------------------------------------------------------
-      // CLEAR REACT USER
-      // ------------------------------------------------------
-
-      setUserState(
-        null
-      );
+      if (version === authVersion.current) {
+        clearLocalAuth();
+        setUserState(null);
+        setAuthLoading(false);
+        setAuthInitialized(true);
+      }
     }
-  };
+  }, []);
 
   // ==========================================================
-  // ROLE VALUES
+  // USER ROLES
   // ==========================================================
 
-  const userRole =
-    user?.role
-      ? String(
-          user.role
-        ).toLowerCase()
-      : null;
+  const userRole = user?.role
+    ? String(user.role).toLowerCase()
+    : null;
 
-  const isAdmin =
-    userRole ===
-    "admin";
-
-  const isManager =
-    userRole ===
-    "manager";
+  const isAdmin = userRole === "admin";
+  const isManager = userRole === "manager";
 
   const isManagement =
-    isAdmin ||
-    isManager;
+    isAdmin || isManager;
 
   const isSignedIn =
-    Boolean(user);
+    authInitialized && Boolean(user);
 
   // ==========================================================
   // CONTEXT VALUE
   // ==========================================================
 
-  const value =
-    useMemo(
-      () => ({
-        // ----------------------------------------------------
-        // CURRENT USER
-        // ----------------------------------------------------
+  const value = useMemo(
+    () => ({
+      user,
+      setUser,
 
-        user,
+      login,
+      register,
+      logout,
 
-        setUser,
+      refreshProfile,
+      updateProfileMedia,
 
-        // ----------------------------------------------------
-        // AUTHENTICATION
-        // ----------------------------------------------------
+      checkAdminAccess,
+      checkManagementAccess,
 
-        login,
+      authLoading,
+      authInitialized,
 
-        register,
+      isSignedIn,
+      isAdmin,
+      isManager,
+      isManagement,
+      userRole,
 
-        logout,
-
-        // ----------------------------------------------------
-        // BACKEND PROFILE
-        // ----------------------------------------------------
-
-        refreshProfile,
-
-        // ----------------------------------------------------
-        // BACKEND ROLE CHECKS
-        // ----------------------------------------------------
-
-        checkAdminAccess,
-
-        checkManagementAccess,
-
-        // ----------------------------------------------------
-        // LOADING
-        // ----------------------------------------------------
-
-        authLoading,
-
-        // ----------------------------------------------------
-        // CONVENIENCE VALUES
-        // ----------------------------------------------------
-
-        isSignedIn,
-
-        isAdmin,
-
-        isManager,
-
-        isManagement,
-
-        userRole,
-      }),
-      [
-        user,
-        authLoading,
-        userRole,
-        isAdmin,
-        isManager,
-        isManagement,
-        isSignedIn,
-      ]
-    );
-
-  // ==========================================================
-  // PROVIDER
-  // ==========================================================
+      cachedUser: loadCachedUser(),
+    }),
+    [
+      user,
+      setUser,
+      login,
+      register,
+      logout,
+      refreshProfile,
+      updateProfileMedia,
+      checkAdminAccess,
+      checkManagementAccess,
+      authLoading,
+      authInitialized,
+      isSignedIn,
+      isAdmin,
+      isManager,
+      isManagement,
+      userRole,
+    ]
+  );
 
   return (
-    <AuthContext.Provider
-      value={value}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
@@ -797,10 +606,7 @@ export function AuthProvider({
 // ============================================================
 
 export function useAuth() {
-  const context =
-    useContext(
-      AuthContext
-    );
+  const context = useContext(AuthContext);
 
   if (!context) {
     throw new Error(

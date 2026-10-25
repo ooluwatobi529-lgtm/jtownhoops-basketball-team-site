@@ -1,3 +1,4 @@
+
 import {
   BrowserRouter as Router,
   Routes,
@@ -6,6 +7,10 @@ import {
 } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
+
+// ============================================================
+// J-TOWN HOOPS PAGES
+// ============================================================
 
 import Home from "./pages/Home";
 import Teams from "./pages/Teams";
@@ -28,18 +33,18 @@ import SupportUs from "./pages/SupportUs";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
+// ============================================================
+// CONTEXT
+//
+// AuthProvider and ThemeProvider are already mounted
+// in main.jsx, so DO NOT mount them again here.
+// ============================================================
+
 import {
   NotificationProvider,
 } from "./context/NotificationContext";
 
-import {
-  AuthProvider,
-  useAuth,
-} from "./context/AuthContext";
-
-import {
-  ThemeProvider,
-} from "./context/ThemeContext";
+import { useAuth } from "./context/AuthContext";
 
 // ============================================================
 // REGISTER PAGE WRAPPER
@@ -49,26 +54,28 @@ function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
+  const handleRegisterSuccess = async (data) => {
+    try {
+      await register(data);
+
+      navigate(
+        `/account?registered=1&email=${encodeURIComponent(
+          data?.email || ""
+        )}`
+      );
+    } catch (error) {
+      console.error(
+        "J-Town Hoops registration failed:",
+        error
+      );
+
+      throw error;
+    }
+  };
+
   return (
     <Register
-      onRegisterSuccess={async (data) => {
-        try {
-          await register(data);
-
-          navigate(
-            `/account?registered=1&email=${encodeURIComponent(
-              data?.email || ""
-            )}`
-          );
-        } catch (error) {
-          console.error(
-            "J-Town Hoops registration failed:",
-            error
-          );
-
-          throw error;
-        }
-      }}
+      onRegisterSuccess={handleRegisterSuccess}
       onToggleLogin={() => {
         navigate("/account");
       }}
@@ -85,10 +92,17 @@ function Site() {
 
   return (
     <NotificationProvider user={user}>
+      {/* ================================================
+          GLOBAL NAVBAR
+          ================================================ */}
+
       <Navbar />
 
-      <Routes>
+      {/* ================================================
+          WEBSITE ROUTES
+          ================================================ */}
 
+      <Routes>
         {/* HOME */}
         <Route
           path="/"
@@ -125,9 +139,15 @@ function Site() {
           element={<AboutUs />}
         />
 
-        {/* SUPPORT */}
+        {/* SUPPORT US */}
         <Route
           path="/support"
+          element={<SupportUs />}
+        />
+
+        {/* SUPPORT US ALTERNATIVE URL */}
+        <Route
+          path="/support-us"
           element={<SupportUs />}
         />
 
@@ -188,9 +208,7 @@ function Site() {
         {/* NOTIFICATIONS */}
         <Route
           path="/notifications"
-          element={
-            <Notifications user={user} />
-          }
+          element={<Notifications user={user} />}
         />
 
         {/* AI ASSISTANT */}
@@ -199,6 +217,11 @@ function Site() {
           element={<AiAssistant />}
         />
 
+        {/* AI ASSISTANT ALTERNATIVE URL */}
+        <Route
+          path="/aiassistant"
+          element={<AiAssistant />}
+        />
       </Routes>
     </NotificationProvider>
   );
@@ -206,16 +229,22 @@ function Site() {
 
 // ============================================================
 // ROOT APPLICATION
+//
+// main.jsx provides:
+//
+// <AuthProvider>
+//   <ThemeProvider>
+//     <App />
+//   </ThemeProvider>
+// </AuthProvider>
+//
+// App.jsx only provides the router and site content.
 // ============================================================
 
 export default function App() {
   return (
     <Router>
-      <ThemeProvider>
-        <AuthProvider>
-          <Site />
-        </AuthProvider>
-      </ThemeProvider>
+      <Site />
     </Router>
   );
 }

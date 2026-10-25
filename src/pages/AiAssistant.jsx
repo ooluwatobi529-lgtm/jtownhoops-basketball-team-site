@@ -1,455 +1,799 @@
-import { useState, useRef, useEffect } from "react";
+
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Bot,
   Send,
   User,
   Sparkles,
-  Flame,
-  Trophy,
-  Calendar,
   RefreshCw,
-  Users,
-  Newspaper,
-  Gamepad2,
+  ShieldCheck,
+  LockKeyhole,
+  LogIn,
+  UserPlus,
+  Wifi,
+  WifiOff,
   Database,
-  Clock3,
-  Trash2,
+  AlertCircle,
+  Trophy,
+  Flame,
 } from "lucide-react";
 
-// ─── MAIN PAGE BACKGROUND IMAGE ───
-import aiBackground from "../images/mybackground4.jpg";
+import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 
+import aiBackground from "../images/mybackground4.jpg";
+import aiPart from "../images/aipart.jpg";
+import bigFemo from "../images/bigfemo.jpg";
+import aiPart2 from "../images/aipart2.jpg";
+import aiPart3 from "../images/aipart3.jpg";
+
+// ============================================================
+// J-TOWN HOOPS AI — REGISTERED MEMBERS ONLY
+// ============================================================
+
+const API_URL = (
+  import.meta.env.VITE_API_URL ||
+  "https://jtownhoops-backend-1.onrender.com"
+)
+  .replace(/\/+$/, "")
+  .replace(/\/api\/v1$/, "");
+
+const CHAT_URL = `${API_URL}/api/v1/ai/chat`;
+const STATUS_URL = `${API_URL}/api/v1/ai/status`;
+
+const TOKEN_KEY = "jtown-hoops-token";
+const CHAT_PREFIX = "jtown-ai-member-chat-v1";
+
+const carouselImages = [
+  aiPart,
+  bigFemo,
+  aiPart2,
+  aiPart3,
+];
+
+const getTime = () =>
+  new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const makeId = () =>
+  `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+const welcomeMessage = () => ({
+  id: makeId(),
+  sender: "ai",
+  text:
+    "🏀 Welcome to J-Town Hoops AI! I'm your basketball assistant. Ask me about basketball, training, teams, players, schedules, registration, or J-Town Hoops. Let's talk basketball!",
+  time: getTime(),
+  source: "J-Town AI",
+});
+
+const getToken = () => {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const getChatKey = (user) => {
+  const id = user?.id || user?._id;
+
+  return id
+    ? `${CHAT_PREFIX}:${id}`
+    : null;
+};
+
+const loadMessages = (key) => {
+  if (!key) return [welcomeMessage()];
+
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem(key) || "null"
+    );
+
+    if (Array.isArray(saved) && saved.length) {
+      const valid = saved.filter(
+        (item) =>
+          item &&
+          ["user", "ai"].includes(item.sender) &&
+          typeof item.text === "string"
+      );
+
+      if (valid.length) return valid.slice(-30);
+    }
+  } catch {
+    // Continue without stored conversation.
+  }
+
+  return [welcomeMessage()];
+};
+
+// ============================================================
+// DISPLAY BASIC MARKDOWN
+// ============================================================
+
+function MessageContent({ text }) {
+  return (
+    <div className="whitespace-pre-wrap break-words leading-relaxed">
+      {String(text)
+        .split(/(\*\*[^*]+\*\*)/g)
+        .map((part, index) =>
+          part.startsWith("**") &&
+          part.endsWith("**") ? (
+            <strong key={index}>
+              {part.slice(2, -2)}
+            </strong>
+          ) : (
+            <span key={index}>{part}</span>
+          )
+        )}
+    </div>
+  );
+}
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
+
 export default function AiAssistant() {
+  const { user, isSignedIn } = useAuth();
   const { theme } = useTheme();
 
-  const welcomeMessage = {
-    id: 1,
-    sender: "ai",
-    text: "Hello! I am your J-Town Hoops AI Court Analyst. I can help with players, teams, schedules, games, news, standings and recent J-Town updates. My current answers use the frontend demo data until your backend is connected.",
-    time: "Just now",
-    source: "J-Town AI",
-  };
+  const chatKey = getChatKey(user);
+  const token = getToken();
 
-  const [messages, setMessages] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("jtown_ai_chat") || "null");
-      return Array.isArray(saved) && saved.length ? saved : [welcomeMessage];
-    } catch {
-      return [welcomeMessage];
-    }
-  });
+  const canChat = Boolean(
+    isSignedIn &&
+    user &&
+    token
+  );
+
+  const [messages, setMessages] = useState([
+    welcomeMessage(),
+  ]);
+
+  const [loadedChatKey, setLoadedChatKey] =
+    useState(null);
 
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [lastIntent, setLastIntent] = useState(
-    localStorage.getItem("jtown_ai_last_intent") || "general"
-  );
-  const chatEndRef = useRef(null);
-
-  // ─── CAROUSEL IMAGE ENGINE STATE ───
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const carouselImages = [
-    "/src/images/aipart.jpg",
-    "/src/images/bigfemo.jpg",
-    "/src/images/aipart2.jpg",
-    "/src/images/aipart3.jpg",
-    "/src/images/aipart4.jpg",
-  ];
+  const [connectionStatus, setConnectionStatus] =
+    useState("checking");
 
-  // ─── ROTATE HEADER CAROUSEL EVERY 4 SECONDS ───
+  const [errorMessage, setErrorMessage] = useState("");
+  const [sessionExpired, setSessionExpired] =
+    useState(false);
+
+  const chatEndRef = useRef(null);
+  const requestRef = useRef(null);
+  const busyRef = useRef(false);
+
+  // ==========================================================
+  // IMAGE CAROUSEL
+  // ==========================================================
+
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % carouselImages.length);
+      setCurrentSlide(
+        (previous) =>
+          (previous + 1) % carouselImages.length
+      );
     }, 4000);
 
     return () => clearInterval(timer);
   }, []);
 
-  // ─── AUTO SCROLL CHAT ───
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
-  }, [messages, isTyping]);
-
-  // ─── SAVE CHAT / CONVERSATION MEMORY ───
-  useEffect(() => {
-    localStorage.setItem("jtown_ai_chat", JSON.stringify(messages.slice(-40)));
-  }, [messages]);
+  // ==========================================================
+  // RESTORE CHAT FOR CURRENT MEMBER
+  // ==========================================================
 
   useEffect(() => {
-    localStorage.setItem("jtown_ai_last_intent", lastIntent);
-  }, [lastIntent]);
+    requestRef.current?.abort();
+    requestRef.current = null;
+    busyRef.current = false;
 
-  // ─── TEMPORARY FRONTEND KNOWLEDGE ───
-  // When your backend is ready, replace this object with API data.
-  const demoData = {
-    standings:
-      "🏆 Current demo standings:\n1. J-Town Hoops (14-2) — Streak: 5W\n2. Eastside Wolves (13-3) — Streak: 2W\n3. Metro Titans (10-6) — Streak: 1L",
-    players:
-      "🔥 Demo player leaders:\n• Marcus Vance — 28.4 PPG, 6.2 APG\n• Tobi Adebayo — 18.5 PPG, 8.9 APG, 2.1 SPG",
-    schedule:
-      "📅 Demo upcoming match:\n• Grand Championship Finals\n• J-Town Hoops vs Eastside Wolves\n• Saturday at 7:00 PM WAT\n• City Dome Arena",
-    games:
-      "🏀 Game Center is ready to connect to your Games and Schedule backend. Once connected, I can answer final scores, wins/losses and recent game questions from live J-Town data.",
-    teams:
-      "👥 Team Center is ready to connect to your Teams backend. I will be able to return rosters, team profiles, records and related schedules.",
-    news:
-      "📰 News Center is ready to connect to your News backend. I will be able to summarize the latest J-Town Hoops stories and updates.",
-    updates:
-      "🔔 J-Town Updates will eventually combine changes from Players, Teams, Schedule, Games, News and Notifications through your backend.",
-  };
+    setIsTyping(false);
+    setErrorMessage("");
+    setSessionExpired(false);
 
-  const detectIntent = (query) => {
-    const q = query.toLowerCase();
+    setMessages(loadMessages(chatKey));
+    setLoadedChatKey(chatKey);
+  }, [chatKey]);
 
-    if (/(standing|leader|rank|table)/.test(q)) return "standings";
-    if (/(mvp|player|stat|scorer|assist)/.test(q)) return "players";
-    if (/(schedule|next match|next game|upcoming|when.*play)/.test(q)) return "schedule";
-    if (/(score|result|won|win|loss|lost|game)/.test(q)) return "games";
-    if (/(team|roster|club)/.test(q)) return "teams";
-    if (/(news|story|headline|article)/.test(q)) return "news";
-    if (/(notification|update|changed|recent)/.test(q)) return "updates";
+  // ==========================================================
+  // CHECK BACKEND CONNECTION
+  // ==========================================================
 
-    // Follow-up questions such as "what about after that?"
-    if (
-      /(what about|after that|and then|more|another|next one|tell me more)/.test(q) &&
-      lastIntent !== "general"
-    ) {
-      return lastIntent;
+  useEffect(() => {
+    if (!canChat) {
+      setConnectionStatus("offline");
+      return;
     }
 
-    return "general";
-  };
+    const controller = new AbortController();
 
-  const getAiResponse = (query) => {
-    const intent = detectIntent(query);
+    const checkConnection = async () => {
+      try {
+        const response = await fetch(STATUS_URL, {
+          signal: controller.signal,
+        });
 
-    if (intent !== "general") {
-      setLastIntent(intent);
-      return {
-        text: demoData[intent],
-        source:
-          intent === "players" ? "Players" :
-          intent === "teams" ? "Teams" :
-          intent === "schedule" ? "Schedule" :
-          intent === "games" ? "Games" :
-          intent === "news" ? "News" :
-          intent === "updates" ? "Notifications" :
-          "League Data",
-      };
-    }
+        if (!response.ok) {
+          throw new Error("Connection unavailable");
+        }
 
-    return {
-      text:
-        "🏀 I specialize in J-Town Hoops. Try asking about a player, team, upcoming match, game result, standings, news or recent update. As we connect your backend, these answers will come from your real J-Town database.",
-      source: "J-Town AI",
+        const data = await response.json();
+
+        if (!controller.signal.aborted) {
+          setConnectionStatus(
+            data.configured ? "online" : "offline"
+          );
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setConnectionStatus("offline");
+        }
+      }
     };
-  };
 
-  // ─── SEND MESSAGE ───
-  const handleSendMessage = (textToSend) => {
-    const cleanText = textToSend.trim();
-    if (!cleanText || isTyping) return;
+    setConnectionStatus("checking");
+    checkConnection();
 
-    const userMsg = {
-      id: Date.now(),
+    return () => controller.abort();
+  }, [canChat]);
+
+  // ==========================================================
+  // SAVE MEMBER CONVERSATION
+  // ==========================================================
+
+  useEffect(() => {
+    if (
+      !chatKey ||
+      loadedChatKey !== chatKey
+    ) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(
+        chatKey,
+        JSON.stringify(messages.slice(-30))
+      );
+    } catch {
+      // Browser storage is optional.
+    }
+  }, [messages, chatKey, loadedChatKey]);
+
+  // ==========================================================
+  // AUTO SCROLL
+  // ==========================================================
+
+  useEffect(() => {
+    if (canChat) {
+      chatEndRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    }
+  }, [messages, isTyping, canChat]);
+
+  // ==========================================================
+  // CANCEL REQUESTS ON UNMOUNT
+  // ==========================================================
+
+  useEffect(() => {
+    return () => {
+      requestRef.current?.abort();
+    };
+  }, []);
+
+  // ==========================================================
+  // SEND AUTHENTICATED AI MESSAGE
+  // ==========================================================
+
+  const handleSendMessage = async (textToSend) => {
+    const cleanText = String(textToSend || "").trim();
+
+    if (
+      !cleanText ||
+      busyRef.current ||
+      !canChat ||
+      sessionExpired ||
+      loadedChatKey !== chatKey
+    ) {
+      return;
+    }
+
+    if (cleanText.length > 2000) {
+      setErrorMessage(
+        "Your message must be 2000 characters or fewer."
+      );
+      return;
+    }
+
+    const currentToken = getToken();
+
+    if (!currentToken) {
+      setSessionExpired(true);
+      setErrorMessage(
+        "Please sign in again to continue."
+      );
+      return;
+    }
+
+    busyRef.current = true;
+    setIsTyping(true);
+    setErrorMessage("");
+    setInput("");
+
+    const history = messages
+      .filter(
+        (msg) =>
+          ["user", "ai"].includes(msg.sender) &&
+          !String(msg.id).startsWith("welcome")
+      )
+      .slice(-12)
+      .map((msg) => ({
+        sender: msg.sender,
+        text: msg.text.slice(0, 2000),
+      }));
+
+    const userMessage = {
+      id: makeId(),
       sender: "user",
       text: cleanText,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      time: getTime(),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setIsTyping(true);
+    setMessages((previous) => [
+      ...previous,
+      userMessage,
+    ]);
 
-    setTimeout(() => {
-      const response = getAiResponse(cleanText);
+    const controller = new AbortController();
+    requestRef.current = controller;
 
-      const aiMsg = {
-        id: Date.now() + 1,
-        sender: "ai",
-        text: response.text,
-        source: response.source,
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 45000);
+
+    try {
+      const response = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${currentToken}`,
+        },
+        body: JSON.stringify({
+          message: cleanText,
+          history,
         }),
-      };
+        signal: controller.signal,
+      });
 
-      setMessages((prev) => [...prev, aiMsg]);
-      setIsTyping(false);
-    }, 650);
+      if (response.status === 401) {
+        setSessionExpired(true);
+        throw new Error(
+          "Your login session has expired. Please sign in again."
+        );
+      }
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "AI request failed."
+        );
+      }
+
+      if (typeof data.reply !== "string") {
+        throw new Error(
+          "The AI returned an invalid reply."
+        );
+      }
+
+      if (controller.signal.aborted) return;
+
+      setMessages((previous) => [
+        ...previous,
+        {
+          id: makeId(),
+          sender: "ai",
+          text: data.reply,
+          source: "J-Town AI",
+          time: getTime(),
+        },
+      ]);
+
+      setConnectionStatus("online");
+    } catch (error) {
+      if (controller.signal.aborted) {
+        setErrorMessage(
+          "The AI request was cancelled or timed out."
+        );
+      } else {
+        setErrorMessage(
+          error.message === "Failed to fetch"
+            ? "Unable to reach the J-Town AI backend. Check your connection."
+            : error.message
+        );
+      }
+    } finally {
+      clearTimeout(timeout);
+
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        busyRef.current = false;
+        setIsTyping(false);
+      }
+    }
   };
+
+  // ==========================================================
+  // RESET CONVERSATION
+  // ==========================================================
 
   const resetConversation = () => {
-    setMessages([welcomeMessage]);
-    setLastIntent("general");
+    requestRef.current?.abort();
+    requestRef.current = null;
+    busyRef.current = false;
+
+    setMessages([welcomeMessage()]);
     setInput("");
     setIsTyping(false);
-    localStorage.removeItem("jtown_ai_chat");
-    localStorage.removeItem("jtown_ai_last_intent");
+    setErrorMessage("");
+
+    if (chatKey) {
+      try {
+        localStorage.removeItem(chatKey);
+      } catch {
+        // Ignore storage errors.
+      }
+    }
   };
 
-  // ─── DYNAMIC QUICK SUGGESTIONS ───
-  const defaultSuggestions = [
-    { text: "Who is leading the MVP race?", icon: <Flame className="h-3.5 w-3.5 jt-accent-text" /> },
-    { text: "Show me the current standings", icon: <Trophy className="h-3.5 w-3.5 jt-accent-text" /> },
-    { text: "When is the next match?", icon: <Calendar className="h-3.5 w-3.5 jt-accent-text" /> },
-    { text: "Explore J-Town teams", icon: <Users className="h-3.5 w-3.5 jt-accent-text" /> },
-    { text: "Show latest news", icon: <Newspaper className="h-3.5 w-3.5 jt-accent-text" /> },
-    { text: "Recent game results", icon: <Gamepad2 className="h-3.5 w-3.5 jt-accent-text" /> },
+  // ==========================================================
+  // QUICK BASKETBALL QUESTIONS
+  // ==========================================================
+
+  const suggestions = [
+    {
+      text: "How can I improve my shooting?",
+      icon: <Flame className="h-4 w-4" />,
+    },
+    {
+      text: "Tell me about J-Town Hoops teams",
+      icon: <Trophy className="h-4 w-4" />,
+    },
+    {
+      text: "What games are scheduled?",
+      icon: <Sparkles className="h-4 w-4" />,
+    },
+    {
+      text: "Explain basketball positions",
+      icon: <Bot className="h-4 w-4" />,
+    },
   ];
 
-  const contextualSuggestions = {
-    players: [
-      "Tell me more about the player leaders",
-      "What team do they play for?",
-      "Show the standings",
-    ],
-    teams: [
-      "Show team rosters",
-      "When is the next game?",
-      "Show the standings",
-    ],
-    schedule: [
-      "What about after that?",
-      "Show recent game results",
-      "Show team information",
-    ],
-    games: [
-      "What about the next game?",
-      "Show the standings",
-      "Latest J-Town news",
-    ],
-    news: [
-      "Show recent updates",
-      "When is the next match?",
-      "Show player leaders",
-    ],
-    updates: [
-      "Show latest news",
-      "Show recent game results",
-      "When is the next match?",
-    ],
-  };
-
-  const suggestionChips =
-    lastIntent !== "general" && contextualSuggestions[lastIntent]
-      ? contextualSuggestions[lastIntent].map((item) => ({
-          text: item,
-          icon: <Sparkles className="h-3.5 w-3.5 jt-accent-text" />,
-        }))
-      : defaultSuggestions;
-
+  // ==========================================================
+  // MAIN PAGE
+  // ==========================================================
 
   return (
-    // ─── MAIN BACKGROUND IMAGE CONTAINER ───
     <div
-      className="min-h-[calc(100vh-5rem)] relative bg-cover bg-center bg-no-repeat bg-fixed font-space"
+      className="relative min-h-[calc(100vh-5rem)] bg-cover bg-center bg-fixed"
       style={{
         backgroundImage: `url(${aiBackground})`,
       }}
     >
-      {/* ─── BACKGROUND OVERLAY ─── */}
-      <div className="absolute inset-0 bg-black/30"></div>
+      <div className="absolute inset-0 bg-black/30" />
 
-      {/* ─── ORIGINAL PAGE CONTENT ─── */}
-      <div className="relative z-10 min-h-[calc(100vh-5rem)] text-slate-900 dark:text-white transition-colors duration-300 flex flex-col">
+      <div className="relative z-10 flex min-h-[calc(100vh-5rem)] flex-col">
 
-        {/* ─── 1. HEADER BANNER WITH HERO BACKGROUND CAROUSEL ─── */}
-        <div className="relative h-36 border-b border-neutral-200 dark:border-neutral-800 shadow-amber-500 overflow-hidden flex items-center justify-between px-6 z-10 font-extrabold">
+        {/* HEADER */}
+        <div className="relative h-36 overflow-hidden border-b border-orange-500/30">
 
-          {/* Layer A: Image Carousel Slots */}
-          {carouselImages.map((imgUrl, index) => (
+          {carouselImages.map((image, index) => (
             <div
               key={index}
-              className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out -z-20 ${
-                index === currentSlide ? "opacity-100" : "opacity-0"
+              className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${
+                index === currentSlide
+                  ? "opacity-100"
+                  : "opacity-0"
               }`}
               style={{
-                backgroundImage: `url('${imgUrl}')`,
+                backgroundImage: `url(${image})`,
               }}
             />
           ))}
 
-          {/* Layer B: Overlay for Header Text */}
-          <div className="absolute inset-0 bg-linear-to-r from-white/90 via-white/70 to-white/40 dark:from-neutral-950/95 dark:via-neutral-950/80 dark:to-neutral-900/40 -z-10" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/75 to-black/35" />
 
-          {/* Header Text */}
-          <div className="flex items-center gap-4">
-            <div className="bg-linear-to-br from-orange-500 to-amber-600 p-3 rounded-2xl shadow-xl shadow-orange-500/20 text-white transform hover:scale-105 transition-transform">
-              <Bot className="h-7 w-7" />
+          <div className="relative z-10 flex h-full items-center justify-between gap-3 px-5 sm:px-8">
+
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-orange-500 p-3 text-white shadow-lg shadow-orange-500/30">
+                <Bot className="h-7 w-7" />
+              </div>
+
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold text-white uppercase tracking-tight">
+                  What's On Your Mind?
+                </h1>
+
+                <p className="text-xs text-neutral-300 mt-1">
+                  J-Town Hoops AI Basketball Assistant
+                </p>
+              </div>
             </div>
 
-            <div>
-              <h1 className="font-syne font-serif font-bold text-2xl tracking-tight text-slate-950 dark:text-white flex items-center gap-2 uppercase">
-                WHAT'S ON YOUR MIND
-
-                <Sparkles className="h-5 w-5 text-orange-500 fill-orange-500" />
-              </h1>
-
-              <p className="text-xs text-slate-600 dark:text-neutral-400 font-medium tracking-wide mt-0.5">
-                J-Town Hoops updates / Automated Season Tracker v4.0
-              </p>
-            </div>
-          </div>
-
-          {/* Reset Button */}
-          <button
-            onClick={resetConversation}
-            className="p-2 text-slate-500 dark:text-neutral-400 bg-white/60 dark:bg-neutral-900/60 hover:text-orange-500 hover:bg-white dark:hover:bg-neutral-800 rounded-xl transition-all border border-neutral-200/50 dark:border-neutral-800 shadow-sm"
-            title="Clear conversation"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* ─── AI STATUS STRIP ─── */}
-        <div className="border-b border-neutral-800/70 bg-black/55 backdrop-blur-md">
-          <div className="max-w-4xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-            <div className="flex items-center gap-2 text-neutral-300">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-50 jt-accent-bg"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full jt-accent-bg"></span>
-              </span>
-              J-Town AI ready
-            </div>
-            <div className="flex items-center gap-3 text-neutral-400">
-              <span className="flex items-center gap-1"><Clock3 className="h-3 w-3" /> Conversation memory</span>
-              <span className="flex items-center gap-1"><Database className="h-3 w-3" /> Frontend demo data</span>
-              <span className="jt-accent-text font-bold">{theme.name}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ─── 2. CHAT STREAM CANVAS ─── */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 max-w-4xl w-full mx-auto">
-
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 items-start ${
-                msg.sender === "user" ? "flex-row-reverse" : ""
-              }`}
-            >
-              {/* Avatar */}
-              <div
-                className={`p-2 rounded-xl flex-shrink-0 text-white ${
-                  msg.sender === "user"
-                    ? "bg-neutral-800"
-                    : "bg-orange-500"
-                }`}
+            {canChat && (
+              <button
+                type="button"
+                onClick={resetConversation}
+                title="Clear conversation"
+                className="cursor-pointer rounded-xl border border-white/20 bg-black/50 p-3 text-white hover:bg-orange-500 transition-colors"
               >
-                {msg.sender === "user" ? (
-                  <User className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* CONNECTION STATUS */}
+        {canChat && (
+          <div className="border-b border-white/10 bg-black/75 px-4 py-2">
+            <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-2 text-xs text-neutral-300">
+
+              <span className="flex items-center gap-2">
+                {connectionStatus === "online" ? (
+                  <Wifi className="h-4 w-4 text-green-400" />
                 ) : (
-                  <Bot className="h-4 w-4" />
-                )}
-              </div>
-
-              {/* Message Bubble */}
-              <div
-                className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm border whitespace-pre-line ${
-                  msg.sender === "user"
-                    ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
-                    : "bg-slate-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800"
-                }`}
-              >
-                {msg.text}
-
-                {msg.sender === "ai" && msg.source && (
-                  <div className="mt-2 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider jt-accent-text">
-                    <Database className="h-3 w-3" />
-                    Source: {msg.source}
-                  </div>
+                  <WifiOff className="h-4 w-4 text-amber-400" />
                 )}
 
-                <span className="block text-[10px] text-slate-400 mt-1.5 text-right font-light">
-                  {msg.time}
-                </span>
-              </div>
+                {connectionStatus === "online"
+                  ? "J-Town AI connected"
+                  : connectionStatus === "checking"
+                  ? "Checking AI connection..."
+                  : "AI connection unavailable"}
+              </span>
+
+              <span className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-green-400" />
+                Member: {user?.name || "J-Town Member"}
+              </span>
+
+              <span className="hidden sm:flex items-center gap-1">
+                <Database className="h-3.5 w-3.5" />
+                {theme?.name || "J-Town"} • GroqCloud
+              </span>
             </div>
-          ))}
+          </div>
+        )}
 
-          {/* AI Typing Animation */}
-          {isTyping && (
-            <div className="flex gap-3 items-start">
+        {/* =====================================================
+            GUEST / SIGN-IN SCREEN
+        ===================================================== */}
 
-              <div className="p-2 rounded-xl bg-orange-500 text-white">
-                <Bot className="h-4 w-4" />
+        {!canChat || sessionExpired ? (
+          <div className="flex flex-1 items-center justify-center px-4 py-12">
+
+            <div className="w-full max-w-lg rounded-3xl border border-orange-500/30 bg-neutral-950/95 p-7 sm:p-10 text-center text-white shadow-2xl backdrop-blur-xl">
+
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-orange-500/40 bg-orange-500/10">
+                <LockKeyhole className="h-10 w-10 text-orange-400" />
               </div>
 
-              <div className="bg-slate-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl px-4 py-3 flex space-x-1">
+              <h2 className="text-2xl font-extrabold">
+                Members-Only AI Assistant
+              </h2>
 
-                <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce delay-75"></div>
+              <p className="mt-4 text-sm leading-7 text-neutral-300">
+                J-Town Hoops AI is exclusively available
+                to registered members who are signed in.
+                Sign in to ask basketball questions,
+                explore J-Town information and enjoy
+                intelligent conversations.
+              </p>
 
-                <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+              {sessionExpired && (
+                <div className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+                  Your session has expired.
+                  Please sign in again.
+                </div>
+              )}
 
-                <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
 
-              </div>
-            </div>
-          )}
-
-          <div ref={chatEndRef} />
-        </div>
-
-        {/* ─── 3. BOTTOM CONTROL BOARD INPUT ─── */}
-        <div className="bg-slate-50 dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 p-4 mt-auto">
-
-          <div className="max-w-4xl mx-auto space-y-3">
-
-            {/* Suggestion Chips */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-
-              {suggestionChips.map((chip, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSendMessage(chip.text)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-neutral-900 hover:bg-slate-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 text-xs font-semibold rounded-full text-slate-600 dark:text-neutral-400 whitespace-nowrap transition-all shadow-sm"
+                <Link
+                  to="/account"
+                  className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 font-bold text-white hover:bg-orange-600 transition-colors"
                 >
-                  {chip.icon}
+                  <LogIn className="h-5 w-5" />
+                  Sign In
+                </Link>
 
-                  <span>{chip.text}</span>
-                </button>
+                <Link
+                  to="/register"
+                  className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-orange-500 px-5 py-3 font-bold text-orange-400 hover:bg-orange-500/10 transition-colors"
+                >
+                  <UserPlus className="h-5 w-5" />
+                  Register
+                </Link>
+              </div>
+
+              <div className="mt-7 flex items-center justify-center gap-2 text-xs text-neutral-400">
+                <ShieldCheck className="h-4 w-4 text-green-400" />
+                Protected by J-Town Hoops authentication
+              </div>
+            </div>
+          </div>
+        ) : (
+
+          <>
+            {/* =================================================
+                AUTHENTICATED CHAT STREAM
+            ================================================= */}
+
+            <div className="mx-auto w-full max-w-4xl flex-1 space-y-4 p-4 sm:p-6">
+
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex items-start gap-3 ${
+                    msg.sender === "user"
+                      ? "flex-row-reverse"
+                      : ""
+                  }`}
+                >
+                  <div
+                    className={`shrink-0 rounded-xl p-2 text-white ${
+                      msg.sender === "user"
+                        ? "bg-neutral-800"
+                        : "bg-orange-500"
+                    }`}
+                  >
+                    {msg.sender === "user" ? (
+                      <User className="h-4 w-4" />
+                    ) : (
+                      <Bot className="h-4 w-4" />
+                    )}
+                  </div>
+
+                  <div
+                    className={`min-w-0 max-w-[85%] rounded-2xl border px-4 py-3 text-sm shadow-lg sm:max-w-[75%] ${
+                      msg.sender === "user"
+                        ? "border-neutral-600 bg-neutral-800 text-white"
+                        : "border-orange-500/20 bg-neutral-950 text-neutral-100"
+                    }`}
+                  >
+                    <MessageContent text={msg.text} />
+
+                    {msg.source && (
+                      <div className="mt-2 flex items-center gap-1 text-[10px] text-orange-400">
+                        <Bot className="h-3 w-3" />
+                        {msg.source}
+                      </div>
+                    )}
+
+                    <p className="mt-2 text-right text-[10px] text-neutral-400">
+                      {msg.time}
+                    </p>
+                  </div>
+                </div>
               ))}
 
+              {isTyping && (
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-orange-500 p-2 text-white">
+                    <Bot className="h-4 w-4" />
+                  </div>
+
+                  <div className="flex gap-1 rounded-2xl bg-neutral-950 px-5 py-4">
+                    {[0, 1, 2].map((index) => (
+                      <span
+                        key={index}
+                        className="h-2 w-2 animate-bounce rounded-full bg-orange-500"
+                        style={{
+                          animationDelay: `${index * 0.2}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {errorMessage && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-xl border border-red-500/40 bg-red-950/90 p-3 text-sm text-red-100"
+                >
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              <div ref={chatEndRef} />
             </div>
 
-            {/* Message Input */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendMessage(input);
-              }}
-              className="flex gap-2 items-center"
-            >
-              <input
-                type="text"
-                placeholder="Ask about players, teams, schedules, games, news or updates..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="flex-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 focus:border-orange-500 focus:outline-none rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white"
-              />
+            {/* =================================================
+                CHAT CONTROLS
+            ================================================= */}
 
-              <button
-                type="submit"
-                disabled={!input.trim()}
-                className="jt-accent-bg disabled:opacity-40 text-white p-3 rounded-xl transition-all shadow-md flex items-center justify-center hover:brightness-110"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </form>
+            <div className="mt-auto border-t border-neutral-800 bg-neutral-950 p-4">
+              <div className="mx-auto max-w-4xl space-y-3">
 
-          </div>
-        </div>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {suggestions.map((item) => (
+                    <button
+                      key={item.text}
+                      type="button"
+                      disabled={isTyping}
+                      onClick={() =>
+                        handleSendMessage(item.text)
+                      }
+                      className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-200 hover:border-orange-500 hover:text-orange-400 disabled:opacity-40 transition-colors"
+                    >
+                      {item.icon}
+                      {item.text}
+                    </button>
+                  ))}
+                </div>
 
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    handleSendMessage(input);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="text"
+                    value={input}
+                    maxLength={2000}
+                    onChange={(event) =>
+                      setInput(event.target.value)
+                    }
+                    placeholder="Ask J-Town AI anything..."
+                    className="min-w-0 flex-1 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm text-white outline-none focus:border-orange-500"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || isTyping}
+                    className="cursor-pointer rounded-xl bg-orange-500 p-3 text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {isTyping ? (
+                      <RefreshCw className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Send className="h-5 w-5" />
+                    )}
+                  </button>
+                </form>
+
+                <p className="text-center text-[10px] text-neutral-500">
+                  J-Town Hoops AI • Members Only •
+                  Powered by GroqCloud •
+                  AI responses may contain mistakes
+                </p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,728 +1,809 @@
-// src/services/api.js
 
-// ============================================================
-// J-TOWN HOOPS API SERVICE
-// ============================================================
-//
-// FRONTEND
-//    ↓
-// api.js
-//    ↓
-// Render Backend
-//    ↓
-// Express
-//    ↓
-// MongoDB Atlas
-//
-// Media:
-//
-// Computer
-//    ↓
-// FormData
-//    ↓
-// api.js
-//    ↓
-// Express / Multer
-//    ↓
-// Cloudinary
-//    ↓
-// Secure media URL
-//
-// ============================================================
+/*
+============================================================
+🏀 J-TOWN HOOPS API SERVICE
+JWT + HTTP-ONLY COOKIE AUTHENTICATION
 
+Supports:
+- Authentication and account management
+- Profile and cover pictures
+- Teams and players
+- Roster highlights
+- Gallery pictures
+- News
+- Videos
+- Music and audio
+- Schedules
+- Cloudinary media uploads
 
-// ============================================================
-// BACKEND URL
-// ============================================================
+IMPORTANT:
+New account-media and roster-highlight endpoints
+must be implemented in the backend before use.
+============================================================
+*/
 
-const API_URL =
+const API_URL = (
   import.meta.env.VITE_API_URL ||
-  "https://jtownhoops-backend.onrender.com";
+  (import.meta.env.DEV
+    ? "http://localhost:5000"
+    : "https://jtownhoops-backend-1.onrender.com")
+).replace(/\/+$/, "");
 
-
-// ============================================================
-// LOCAL STORAGE
-// ============================================================
-//
-// IMPORTANT:
-//
-// We ONLY keep the small JWT token here.
-//
-// DO NOT store:
-//
-// profile pictures
-// cover pictures
-// team logos
-// gallery pictures
-// videos
-// music
-// large Base64 files
-//
-// in localStorage.
-//
-// ============================================================
-
-const TOKEN_KEY =
-  "jtown-hoops-token";
-
+const TOKEN_KEY = "jtown-hoops-token";
 
 // ============================================================
-// GET JWT TOKEN
+// JWT TOKEN
 // ============================================================
 
 function getToken() {
   try {
-    return localStorage.getItem(
-      TOKEN_KEY
-    );
+    return localStorage.getItem(TOKEN_KEY);
   } catch (error) {
-    console.error(
-      "Could not read authentication token:",
-      error
-    );
-
+    console.error("Could not read JWT:", error);
     return null;
   }
 }
 
-
 // ============================================================
-// GENERAL REQUEST FUNCTION
-// ============================================================
-//
-// This function now understands BOTH:
-//
-// 1. Normal JSON requests
-// 2. FormData / file-upload requests
-//
-// IMPORTANT:
-//
-// When FormData is used, we MUST NOT manually set:
-//
-// Content-Type: multipart/form-data
-//
-// The browser automatically creates the correct multipart
-// boundary.
-//
+// SHARED REQUEST
 // ============================================================
 
-async function request(
-  endpoint,
-  options = {}
-) {
-  const token =
-    getToken();
-
-
-  // ==========================================================
-  // DETECT FORMDATA
-  // ==========================================================
+async function request(endpoint, options = {}) {
+  const token = getToken();
 
   const isFormData =
-    options.body instanceof
-    FormData;
+    typeof FormData !== "undefined" &&
+    options.body instanceof FormData;
 
+  const headers = new Headers(options.headers || {});
 
-  // ==========================================================
-  // CREATE HEADERS
-  // ==========================================================
-
-  const headers = {
-    ...options.headers,
-  };
-
-
-  // ==========================================================
-  // JSON CONTENT TYPE
-  // ==========================================================
-  //
-  // Only set application/json when this is NOT FormData.
-  //
-  // ==========================================================
-
-  if (!isFormData) {
-    headers["Content-Type"] =
-      "application/json";
+  if (!isFormData && options.body != null) {
+    if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
   }
 
-
-  // ==========================================================
-  // ATTACH JWT
-  // ==========================================================
-
+  // Keep JWT authentication.
   if (token) {
-    headers.Authorization =
-      `Bearer ${token}`;
+    headers.set("Authorization", `Bearer ${token}`);
   }
-
 
   try {
+    const response = await fetch(
+      `${API_URL}${endpoint}`,
+      {
+        ...options,
 
-    // ========================================================
-    // SEND REQUEST
-    // ========================================================
+        // Keep HTTP-only cookie authentication.
+        credentials: "include",
 
-    const response =
-      await fetch(
-        `${API_URL}${endpoint}`,
-        {
-          ...options,
-          headers,
-        }
-      );
+        headers,
+      }
+    );
 
-
-    // ========================================================
-    // READ BACKEND RESPONSE
-    // ========================================================
+    const contentType =
+      response.headers.get("content-type") || "";
 
     let data = {};
 
-    const contentType =
-      response.headers.get(
-        "content-type"
-      ) || "";
-
-
-    if (
-      contentType.includes(
-        "application/json"
-      )
-    ) {
-      data =
-        await response.json();
-
+    if (contentType.includes("application/json")) {
+      data = await response.json();
     } else {
+      const responseText = await response.text();
 
-      const text =
-        await response.text();
-
-      if (text) {
-        data = {
-          message: text,
-        };
+      if (responseText) {
+        data = { message: responseText };
       }
     }
 
-
-    // ========================================================
-    // HANDLE BACKEND ERROR
-    // ========================================================
-
     if (!response.ok) {
+      const error = new Error(
+        data?.message ||
+          data?.error ||
+          `Request failed (${response.status})`
+      );
 
-      const error =
-        new Error(
-          data?.message ||
-            data?.error ||
-            `Request failed with status ${response.status}`
-        );
-
-
-      error.status =
-        response.status;
-
-
-      error.data =
-        data;
-
+      error.status = response.status;
+      error.data = data;
 
       throw error;
     }
 
-
-    // ========================================================
-    // SUCCESS
-    // ========================================================
-
     return data;
-
   } catch (error) {
-
     console.error(
       `J-Town Hoops API error (${endpoint}):`,
       error
     );
 
-
     throw error;
   }
 }
 
+// ============================================================
+// HELPERS
+// ============================================================
+
+function requireId(id, label = "Item") {
+  if (
+    id === undefined ||
+    id === null ||
+    String(id).trim() === ""
+  ) {
+    throw new Error(`${label} ID is required.`);
+  }
+
+  return encodeURIComponent(String(id));
+}
+
+function requireFile(file, label = "file") {
+  if (!file) {
+    throw new Error(`Please select a ${label}.`);
+  }
+}
+
+function validateFile(file, allowedTypes, maxMB, label) {
+  requireFile(file, label);
+
+  if (
+    file.type &&
+    !allowedTypes.includes(file.type)
+  ) {
+    throw new Error(`Unsupported ${label} format.`);
+  }
+
+  if (file.size > maxMB * 1024 * 1024) {
+    throw new Error(
+      `${label} must be smaller than ${maxMB} MB.`
+    );
+  }
+}
+
+function makeFormData(file, fieldName, folder) {
+  const formData = new FormData();
+
+  formData.append(fieldName, file);
+  formData.append("folder", folder);
+
+  return formData;
+}
+
+function jsonRequest(endpoint, method, data) {
+  return request(endpoint, {
+    method,
+    ...(data !== undefined
+      ? { body: JSON.stringify(data) }
+      : {}),
+  });
+}
 
 // ============================================================
-// AUTHENTICATION API
+// AUTHENTICATION
 // ============================================================
 
 export const authAPI = {
-
-
-  // ==========================================================
-  // REGISTER
-  // POST /api/v1/auth/sign-up
-  // ==========================================================
-
-  register: async (
-    userData
-  ) => {
-    return request(
+  register: (userData) =>
+    jsonRequest(
       "/api/v1/auth/sign-up",
-      {
-        method: "POST",
+      "POST",
+      userData
+    ),
 
-        body: JSON.stringify(
-          userData
-        ),
-      }
-    );
-  },
-
-
-  // ==========================================================
-  // LOGIN
-  // POST /api/v1/auth/sign-in
-  // ==========================================================
-
-  login: async ({
-    email,
-    password,
-  }) => {
-    return request(
+  login: ({ email, password }) =>
+    jsonRequest(
       "/api/v1/auth/sign-in",
-      {
-        method: "POST",
+      "POST",
+      { email, password }
+    ),
 
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      }
-    );
-  },
-
-
-  // ==========================================================
-  // SIGN OUT
-  // POST /api/v1/auth/sign-out
-  // ==========================================================
-
-  signOut: async () => {
-    return request(
+  signOut: () =>
+    jsonRequest(
       "/api/v1/auth/sign-out",
-      {
-        method: "POST",
-      }
-    );
-  },
+      "POST"
+    ),
 
-
-  // ==========================================================
-  // FORGOT PASSWORD
-  // POST /api/v1/auth/forgot-password
-  // ==========================================================
-
-  forgotPassword: async ({
-    email,
-  }) => {
-    return request(
+  forgotPassword: ({ email }) =>
+    jsonRequest(
       "/api/v1/auth/forgot-password",
-      {
-        method: "POST",
+      "POST",
+      { email }
+    ),
 
-        body: JSON.stringify({
-          email,
-        }),
-      }
-    );
-  },
-
-
-  // ==========================================================
-  // RESET PASSWORD
-  // POST /api/v1/auth/reset-password
-  // ==========================================================
-
-  resetPassword: async ({
+  resetPassword: ({
     token,
     password,
     confirmPassword,
-  }) => {
-    return request(
+  }) =>
+    jsonRequest(
       "/api/v1/auth/reset-password",
-      {
-        method: "POST",
+      "POST",
+      { token, password, confirmPassword }
+    ),
 
-        body: JSON.stringify({
-          token,
-          password,
-          confirmPassword,
-        }),
-      }
-    );
-  },
-
-
-  // ==========================================================
-  // CHANGE PASSWORD
-  // PATCH /api/v1/auth/change-password
-  // ==========================================================
-
-  changePassword: async ({
+  changePassword: ({
     currentPassword,
     newPassword,
     confirmPassword,
-  }) => {
-    return request(
+  }) =>
+    jsonRequest(
       "/api/v1/auth/change-password",
+      "PATCH",
       {
-        method: "PATCH",
-
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-          confirmPassword,
-        }),
+        currentPassword,
+        newPassword,
+        confirmPassword,
       }
-    );
-  },
+    ),
 
-
-  // ==========================================================
-  // DELETE CURRENT ACCOUNT
-  // DELETE /api/v1/auth/account
-  // ==========================================================
-
-  deleteAccount: async ({
+  deleteAccount: ({
     password,
     confirmation = "DELETE",
-  }) => {
-    return request(
+  }) =>
+    jsonRequest(
       "/api/v1/auth/account",
-      {
-        method: "DELETE",
+      "DELETE",
+      { password, confirmation }
+    ),
 
-        body: JSON.stringify({
-          password,
-          confirmation,
-        }),
-      }
+  profile: () =>
+    request("/api/v1/protected/profile", {
+      method: "GET",
+    }),
+
+  admin: () =>
+    request("/api/v1/protected/admin", {
+      method: "GET",
+    }),
+
+  management: () =>
+    request("/api/v1/protected/management", {
+      method: "GET",
+    }),
+
+  // NEW BACKEND ENDPOINTS - NOT YET IMPLEMENTED
+
+  updateProfile: (profileData) =>
+    jsonRequest(
+      "/api/v1/profile",
+      "PATCH",
+      profileData
+    ),
+
+  uploadProfilePicture: (file) => {
+    validateFile(
+      file,
+      ["image/jpeg", "image/png", "image/webp"],
+      5,
+      "Profile picture"
     );
+
+    return request("/api/v1/profile/avatar", {
+      method: "POST",
+      body: makeFormData(
+        file,
+        "image",
+        "profiles"
+      ),
+    });
   },
 
-
-  // ==========================================================
-  // CURRENT USER PROFILE
-  // GET /api/v1/protected/profile
-  // ==========================================================
-
-  profile: async () => {
-    return request(
-      "/api/v1/protected/profile",
-      {
-        method: "GET",
-      }
+  uploadCoverPicture: (file) => {
+    validateFile(
+      file,
+      ["image/jpeg", "image/png", "image/webp"],
+      5,
+      "Cover picture"
     );
-  },
 
-
-  // ==========================================================
-  // ADMIN ACCESS
-  // GET /api/v1/protected/admin
-  // ==========================================================
-
-  admin: async () => {
-    return request(
-      "/api/v1/protected/admin",
-      {
-        method: "GET",
-      }
-    );
-  },
-
-
-  // ==========================================================
-  // MANAGEMENT ACCESS
-  // GET /api/v1/protected/management
-  // ==========================================================
-
-  management: async () => {
-    return request(
-      "/api/v1/protected/management",
-      {
-        method: "GET",
-      }
-    );
+    return request("/api/v1/profile/cover", {
+      method: "POST",
+      body: makeFormData(
+        file,
+        "image",
+        "covers"
+      ),
+    });
   },
 };
 
-
 // ============================================================
-// TEAMS API
-// ============================================================
-//
-// PUBLIC:
-//
-// GET    /api/v1/teams
-// GET    /api/v1/teams/:id
-//
-// ADMIN:
-//
-// POST   /api/v1/teams
-// PUT    /api/v1/teams/:id
-// DELETE /api/v1/teams/:id
-//
+// TEAMS
 // ============================================================
 
 export const teamAPI = {
+  getAll: () =>
+    request("/api/v1/teams", {
+      method: "GET",
+    }),
 
+  getOne: (teamId) =>
+    request(
+      `/api/v1/teams/${requireId(teamId, "Team")}`,
+      { method: "GET" }
+    ),
 
-  // ==========================================================
-  // GET ALL TEAMS
-  // ==========================================================
-
-  getAll: async () => {
-    return request(
+  create: (teamData) =>
+    jsonRequest(
       "/api/v1/teams",
-      {
-        method: "GET",
-      }
-    );
-  },
+      "POST",
+      teamData
+    ),
 
+  update: (teamId, teamData) =>
+    jsonRequest(
+      `/api/v1/teams/${requireId(teamId, "Team")}`,
+      "PUT",
+      teamData
+    ),
 
-  // ==========================================================
-  // GET ONE TEAM
-  // ==========================================================
-
-  getOne: async (
-    teamId
-  ) => {
-    return request(
-      `/api/v1/teams/${teamId}`,
-      {
-        method: "GET",
-      }
-    );
-  },
-
-
-  // ==========================================================
-  // CREATE TEAM
-  // ADMIN ONLY
-  // ==========================================================
-
-  create: async (
-    teamData
-  ) => {
-    return request(
-      "/api/v1/teams",
-      {
-        method: "POST",
-
-        body: JSON.stringify(
-          teamData
-        ),
-      }
-    );
-  },
-
-
-  // ==========================================================
-  // UPDATE TEAM
-  // ADMIN ONLY
-  // ==========================================================
-
-  update: async (
-    teamId,
-    teamData
-  ) => {
-    return request(
-      `/api/v1/teams/${teamId}`,
-      {
-        method: "PUT",
-
-        body: JSON.stringify(
-          teamData
-        ),
-      }
-    );
-  },
-
-
-  // ==========================================================
-  // DELETE TEAM
-  // ADMIN ONLY
-  // ==========================================================
-
-  remove: async (
-    teamId
-  ) => {
-    return request(
-      `/api/v1/teams/${teamId}`,
-      {
-        method: "DELETE",
-      }
-    );
-  },
+  remove: (teamId) =>
+    request(
+      `/api/v1/teams/${requireId(teamId, "Team")}`,
+      { method: "DELETE" }
+    ),
 };
 
+// ============================================================
+// PLAYERS AND ROSTER
+// ============================================================
+
+export const playerAPI = {
+  getAll: () =>
+    request("/api/v1/players", {
+      method: "GET",
+    }),
+
+  getOne: (playerId) =>
+    request(
+      `/api/v1/players/${requireId(playerId, "Player")}`,
+      { method: "GET" }
+    ),
+
+  create: (playerData) =>
+    jsonRequest(
+      "/api/v1/players",
+      "POST",
+      playerData
+    ),
+
+  update: (playerId, playerData) =>
+    jsonRequest(
+      `/api/v1/players/${requireId(playerId, "Player")}`,
+      "PUT",
+      playerData
+    ),
+
+  remove: (playerId) =>
+    request(
+      `/api/v1/players/${requireId(playerId, "Player")}`,
+      { method: "DELETE" }
+    ),
+};
+
+// Existing Home roster endpoint.
+export const rosterAPI = {
+  getAll: () =>
+    request("/api/v1/roster", {
+      method: "GET",
+    }),
+
+  // NEW BACKEND ENDPOINTS - NOT YET IMPLEMENTED
+
+  addHighlight: (playerId, highlightData) =>
+    jsonRequest(
+      `/api/v1/roster/${requireId(
+        playerId,
+        "Player"
+      )}/highlights`,
+      "POST",
+      highlightData
+    ),
+
+  removeHighlight: (playerId, highlightId) =>
+    request(
+      `/api/v1/roster/${requireId(
+        playerId,
+        "Player"
+      )}/highlights/${requireId(
+        highlightId,
+        "Highlight"
+      )}`,
+      { method: "DELETE" }
+    ),
+};
 
 // ============================================================
-// MEDIA API
+// GALLERY PICTURES
 // ============================================================
-//
-// This is deliberately reusable.
-//
-// We are NOT making:
-//
-// teamLogoAPI
-// playerPhotoAPI
-// newsPhotoAPI
-// galleryPhotoAPI
-//
-// separately.
-//
-// All of those pages can use:
-//
-// mediaAPI.uploadImage(...)
-//
+
+export const pictureAPI = {
+  getAll: () =>
+    request("/api/v1/pictures", {
+      method: "GET",
+    }),
+
+  getOne: (pictureId) =>
+    request(
+      `/api/v1/pictures/${requireId(
+        pictureId,
+        "Picture"
+      )}`,
+      { method: "GET" }
+    ),
+
+  create: (pictureData) =>
+    jsonRequest(
+      "/api/v1/pictures",
+      "POST",
+      pictureData
+    ),
+
+  update: (pictureId, pictureData) =>
+    jsonRequest(
+      `/api/v1/pictures/${requireId(
+        pictureId,
+        "Picture"
+      )}`,
+      "PUT",
+      pictureData
+    ),
+
+  remove: (pictureId) =>
+    request(
+      `/api/v1/pictures/${requireId(
+        pictureId,
+        "Picture"
+      )}`,
+      { method: "DELETE" }
+    ),
+
+  like: (pictureId) =>
+    request(
+      `/api/v1/pictures/${requireId(
+        pictureId,
+        "Picture"
+      )}/like`,
+      { method: "PATCH" }
+    ),
+};
+
+// ============================================================
+// NEWS
+// ============================================================
+
+export const newsAPI = {
+  getAll: () =>
+    request("/api/v1/news", {
+      method: "GET",
+    }),
+
+  getOne: (newsId) =>
+    request(
+      `/api/v1/news/${requireId(newsId, "News")}`,
+      { method: "GET" }
+    ),
+
+  create: (newsData) =>
+    jsonRequest(
+      "/api/v1/news",
+      "POST",
+      newsData
+    ),
+
+  update: (newsId, newsData) =>
+    jsonRequest(
+      `/api/v1/news/${requireId(newsId, "News")}`,
+      "PUT",
+      newsData
+    ),
+
+  remove: (newsId) =>
+    request(
+      `/api/v1/news/${requireId(newsId, "News")}`,
+      { method: "DELETE" }
+    ),
+};
+
+// ============================================================
+// VIDEOS
+// ============================================================
+
+export const videoAPI = {
+  getAll: () =>
+    request("/api/v1/videos", {
+      method: "GET",
+    }),
+
+  getOne: (videoId) =>
+    request(
+      `/api/v1/videos/${requireId(videoId, "Video")}`,
+      { method: "GET" }
+    ),
+
+  create: (videoData) =>
+    jsonRequest(
+      "/api/v1/videos",
+      "POST",
+      videoData
+    ),
+
+  update: (videoId, videoData) =>
+    jsonRequest(
+      `/api/v1/videos/${requireId(videoId, "Video")}`,
+      "PUT",
+      videoData
+    ),
+
+  remove: (videoId) =>
+    request(
+      `/api/v1/videos/${requireId(videoId, "Video")}`,
+      { method: "DELETE" }
+    ),
+};
+
+// ============================================================
+// MUSIC
+// ============================================================
+
+export const musicAPI = {
+  getAll: () =>
+    request("/api/v1/music", {
+      method: "GET",
+    }),
+
+  getOne: (musicId) =>
+    request(
+      `/api/v1/music/${requireId(musicId, "Music")}`,
+      { method: "GET" }
+    ),
+
+  create: (musicData) =>
+    jsonRequest(
+      "/api/v1/music",
+      "POST",
+      musicData
+    ),
+
+  update: (musicId, musicData) =>
+    jsonRequest(
+      `/api/v1/music/${requireId(musicId, "Music")}`,
+      "PUT",
+      musicData
+    ),
+
+  remove: (musicId) =>
+    request(
+      `/api/v1/music/${requireId(musicId, "Music")}`,
+      { method: "DELETE" }
+    ),
+};
+
+// ============================================================
+// SCHEDULE
+// ============================================================
+
+export const scheduleAPI = {
+  getAll: () =>
+    request("/api/v1/schedules", {
+      method: "GET",
+    }),
+
+  getOne: (scheduleId) =>
+    request(
+      `/api/v1/schedules/${requireId(
+        scheduleId,
+        "Schedule"
+      )}`,
+      { method: "GET" }
+    ),
+
+  create: (scheduleData) =>
+    jsonRequest(
+      "/api/v1/schedules",
+      "POST",
+      scheduleData
+    ),
+
+  update: (scheduleId, scheduleData) =>
+    jsonRequest(
+      `/api/v1/schedules/${requireId(
+        scheduleId,
+        "Schedule"
+      )}`,
+      "PUT",
+      scheduleData
+    ),
+
+  remove: (scheduleId) =>
+    request(
+      `/api/v1/schedules/${requireId(
+        scheduleId,
+        "Schedule"
+      )}`,
+      { method: "DELETE" }
+    ),
+};
+
+// ============================================================
+// CLOUDINARY MEDIA UPLOADS
 // ============================================================
 
 export const mediaAPI = {
-
-
-  // ==========================================================
-  // UPLOAD IMAGE
-  // POST /api/v1/uploads/image
-  // ADMIN ONLY
-  // ==========================================================
-  //
-  // Usage:
-  //
-  // await mediaAPI.uploadImage({
-  //   file,
-  //   folder: "teams",
-  // });
-  //
-  // Valid folders currently:
-  //
-  // teams
-  // players
-  // profiles
-  // covers
-  // news
-  // gallery
-  // general
-  //
-  // ==========================================================
-
-  uploadImage: async ({
+  // Existing image upload API.
+  uploadImage: ({
     file,
     folder = "general",
   }) => {
+    validateFile(
+      file,
+      [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ],
+      5,
+      "Image"
+    );
 
-    // ========================================================
-    // FILE REQUIRED
-    // ========================================================
+    return request("/api/v1/uploads/image", {
+      method: "POST",
+      body: makeFormData(
+        file,
+        "image",
+        folder
+      ),
+    });
+  },
 
-    if (!file) {
-      throw new Error(
-        "Please choose an image first."
-      );
-    }
+  // Existing video upload API.
+  uploadVideo: ({
+    file,
+    folder = "videos",
+  }) => {
+    validateFile(
+      file,
+      [
+        "video/mp4",
+        "video/webm",
+        "video/quicktime",
+        "video/x-m4v",
+      ],
+      100,
+      "Video"
+    );
 
+    return request("/api/v1/uploads/video", {
+      method: "POST",
+      body: makeFormData(
+        file,
+        "video",
+        folder
+      ),
+    });
+  },
 
-    // ========================================================
-    // FRONTEND FILE TYPE CHECK
-    // ========================================================
-    //
-    // The backend checks this again.
-    //
-    // Frontend validation is only for faster feedback.
-    //
-    // ========================================================
+  // Existing audio upload API.
+  uploadAudio: ({
+    file,
+    folder = "music",
+  }) => {
+    requireFile(file, "audio file");
 
     const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
+      "audio/mpeg",
+      "audio/mp3",
+      "audio/wav",
+      "audio/x-wav",
+      "audio/wave",
+      "audio/webm",
+      "audio/mp4",
+      "audio/x-m4a",
+      "audio/aac",
+      "audio/ogg",
     ];
 
+    const allowedExtensions = [
+      ".mp3",
+      ".wav",
+      ".webm",
+      ".m4a",
+      ".aac",
+      ".ogg",
+    ];
 
-    if (
-      !allowedTypes.includes(
-        file.type
-      )
-    ) {
+    const name = String(
+      file.name || ""
+    ).toLowerCase();
+
+    const validExtension =
+      allowedExtensions.some((extension) =>
+        name.endsWith(extension)
+      );
+
+    const validType =
+      !file.type ||
+      allowedTypes.includes(file.type);
+
+    if (!validType && !validExtension) {
       throw new Error(
-        "Only JPG, JPEG, PNG and WEBP images are allowed."
+        "Only MP3, WAV, WEBM, M4A, AAC and OGG audio files are allowed."
       );
     }
 
-
-    // ========================================================
-    // FRONTEND SIZE CHECK
-    // ========================================================
-    //
-    // 5 MB
-    //
-    // Backend also independently enforces this.
-    //
-    // ========================================================
-
-    const maximumSize =
-      5 * 1024 * 1024;
-
-
-    if (
-      file.size >
-      maximumSize
-    ) {
+    if (file.size > 50 * 1024 * 1024) {
       throw new Error(
-        "The image is too large. Please choose an image smaller than 5 MB."
+        "Audio file must be smaller than 50 MB."
       );
     }
 
-
-    // ========================================================
-    // CREATE FORMDATA
-    // ========================================================
-
-    const formData =
-      new FormData();
-
-
-    // MUST match Multer:
-    //
-    // imageUpload.single("image")
-
-    formData.append(
-      "image",
-      file
-    );
-
-
-    formData.append(
-      "folder",
-      folder
-    );
-
-
-    // ========================================================
-    // UPLOAD
-    // ========================================================
-
-    return request(
-      "/api/v1/uploads/image",
-      {
-        method: "POST",
-
-        body: formData,
-      }
-    );
+    return request("/api/v1/uploads/audio", {
+      method: "POST",
+      body: makeFormData(
+        file,
+        "audio",
+        folder
+      ),
+    });
   },
-};
 
+  // Convenience helpers for individual sections.
+  // These upload media; they do not automatically
+  // save content records in MongoDB.
+
+  uploadGalleryPicture: (file) =>
+    mediaAPI.uploadImage({
+      file,
+      folder: "gallery",
+    }),
+
+  uploadRosterPicture: (file) =>
+    mediaAPI.uploadImage({
+      file,
+      folder: "roster",
+    }),
+
+  uploadRosterHighlight: (file) =>
+    mediaAPI.uploadVideo({
+      file,
+      folder: "roster-highlights",
+    }),
+
+  uploadMusicFile: (file) =>
+    mediaAPI.uploadAudio({
+      file,
+      folder: "music",
+    }),
+
+  uploadMusicCover: (file) =>
+    mediaAPI.uploadImage({
+      file,
+      folder: "music-covers",
+    }),
+
+  uploadVideoFile: (file) =>
+    mediaAPI.uploadVideo({
+      file,
+      folder: "videos",
+    }),
+
+  uploadVideoThumbnail: (file) =>
+    mediaAPI.uploadImage({
+      file,
+      folder: "video-thumbnails",
+    }),
+
+  uploadNewsPicture: (file) =>
+    mediaAPI.uploadImage({
+      file,
+      folder: "news",
+    }),
+
+  uploadTeamLogo: (file) =>
+    mediaAPI.uploadImage({
+      file,
+      folder: "teams",
+    }),
+};
 
 // ============================================================
 // GENERAL API OBJECT
@@ -730,25 +811,22 @@ export const mediaAPI = {
 
 export const api = {
   request,
-
-  auth:
-    authAPI,
-
-  teams:
-    teamAPI,
-
-  media:
-    mediaAPI,
+  auth: authAPI,
+  teams: teamAPI,
+  players: playerAPI,
+  roster: rosterAPI,
+  pictures: pictureAPI,
+  news: newsAPI,
+  videos: videoAPI,
+  music: musicAPI,
+  schedules: scheduleAPI,
+  media: mediaAPI,
 };
 
-
 // ============================================================
-// EXPORT BACKEND URL
+// EXPORTS
 // ============================================================
 
-export {
-  API_URL,
-};
-
+export { API_URL };
 
 export default API_URL;

@@ -31,17 +31,7 @@ import { useTheme } from "../context/ThemeContext";
 
 import jtownLogo from "../images/team-logo.jpg";
 
-const PROFILE_PREFIX = "jtown_hoops_profile_v2::";
 
-const getProfileKey = (user) => {
-  const email = String(user?.email || "")
-    .trim()
-    .toLowerCase();
-
-  return email
-    ? `${PROFILE_PREFIX}${email}`
-    : null;
-};
 
 export default function Navbar({
   searchData = [],
@@ -81,168 +71,47 @@ export default function Navbar({
     setShowSuggestions,
   ] = useState(false);
 
-  const [profile, setProfile] = useState({
-    name: "",
-    avatar: "",
-    role: "User",
-  });
+// The authenticated user is the single source of truth.
+// No separate browser-stored avatar overrides MongoDB.
+
+const profile = {
+  name:
+    user?.name ||
+    user?.fullName ||
+    user?.teamName ||
+    user?.managerFullName ||
+    "Account",
+
+  avatar:
+    user?.profilePicture || "",
+
+  role:
+    isAdmin
+      ? "Admin"
+      : user?.role ||
+        user?.accountType ||
+        "User",
+};
 
   const notificationRef = useRef(null);
-  const themeRef = useRef(null);
+  
+const themeRef = useRef(null);
+const mobileThemeRef = useRef(null);
+const mobileThemeButtonRef = useRef(null);
+
   const searchRef = useRef(null);
 
   const navigate = useNavigate();
   const location = useLocation();
 
+ 
   // ============================================================
-  // PROFILE
+  // PROFILE - SYNCHRONIZED WITH ACCOUNT INDEXEDDB
   // ============================================================
 
-  const loadProfile = () => {
-    if (!user?.email) {
-      setProfile({
-        name: "",
-        avatar: "",
-        role: "User",
-      });
 
-      return;
-    }
 
-    const key = getProfileKey(user);
 
-    try {
-      const saved = key
-        ? JSON.parse(
-            localStorage.getItem(key) ||
-              "{}"
-          )
-        : {};
-
-      setProfile({
-        ...saved,
-
-        name:
-          saved.name ||
-          user.name ||
-          user.fullName ||
-          user.teamName ||
-          user.managerFullName ||
-          "Account",
-
-        role: isAdmin
-          ? "Admin"
-          : saved.role ||
-            user.role ||
-            user.accountType ||
-            "User",
-
-        avatar: saved.avatar || "",
-      });
-    } catch {
-      setProfile({
-        name:
-          user.name ||
-          user.fullName ||
-          user.teamName ||
-          user.managerFullName ||
-          "Account",
-
-        avatar: "",
-
-        role: isAdmin
-          ? "Admin"
-          : user.role ||
-            user.accountType ||
-            "User",
-      });
-    }
-  };
-
-  useEffect(() => {
-    loadProfile();
-
-    const handleProfileUpdate = (
-      event
-    ) => {
-      const currentEmail = String(
-        user?.email || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const eventEmail = String(
-        event?.detail?.email || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const updatedProfile =
-        event?.detail?.profile;
-
-      if (
-        updatedProfile &&
-        eventEmail &&
-        eventEmail === currentEmail
-      ) {
-        setProfile(updatedProfile);
-        return;
-      }
-
-      loadProfile();
-    };
-
-    const handleStorage = () =>
-      loadProfile();
-
-    window.addEventListener(
-      "jtown-profile-updated",
-      handleProfileUpdate
-    );
-
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
-
-    return () => {
-      window.removeEventListener(
-        "jtown-profile-updated",
-        handleProfileUpdate
-      );
-
-      window.removeEventListener(
-        "storage",
-        handleStorage
-      );
-    };
-  }, [
-    user?.email,
-    user?.role,
-    user?.accountType,
-    isAdmin,
-  ]);
-
-  useEffect(() => {
-    const refreshProfile = () =>
-      loadProfile();
-
-    window.addEventListener(
-      "focus",
-      refreshProfile
-    );
-
-    return () =>
-      window.removeEventListener(
-        "focus",
-        refreshProfile
-      );
-  }, [
-    user?.email,
-    user?.role,
-    user?.accountType,
-    isAdmin,
-  ]);
 
   // ============================================================
   // CLOSE PANELS WHEN ROUTE CHANGES
@@ -270,14 +139,23 @@ export default function Navbar({
         setShowNotifications(false);
       }
 
-      if (
-        themeRef.current &&
-        !themeRef.current.contains(
-          event.target
-        )
-      ) {
-        setShowThemes(false);
-      }
+
+const clickedDesktopTheme =
+  themeRef.current?.contains(event.target);
+
+const clickedMobileTheme =
+  mobileThemeRef.current?.contains(event.target);
+
+const clickedMobileThemeButton =
+  mobileThemeButtonRef.current?.contains(event.target);
+
+if (
+  !clickedDesktopTheme &&
+  !clickedMobileTheme &&
+  !clickedMobileThemeButton
+) {
+  setShowThemes(false);
+}
 
       if (
         searchRef.current &&
@@ -933,15 +811,17 @@ export default function Navbar({
                 ================================================ */}
 
             <div
-              ref={themeRef}
+              ref={mobileThemeRef}
               className="relative z-[1000001]"
             >
               <button
+              ref={mobileThemeButtonRef}
                 type="button"
                 onClick={() => {
                   setShowNotifications(
                     false
                   );
+
 
                   setShowThemes(
                     (value) => !value
